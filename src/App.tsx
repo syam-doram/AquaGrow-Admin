@@ -21,8 +21,6 @@ import SupportTickets from './pages/SupportTickets';
 import Login from './pages/Login';
 
 // New pages
-import PondMonitoring from './pages/PondMonitoring';
-import DailyLogs from './pages/DailyLogs';
 import HarvestManagement from './pages/HarvestManagement';
 import Certifications from './pages/Certifications';
 import IoTDevices from './pages/IoTDevices';
@@ -77,8 +75,6 @@ const App = () => {
         <Route path="/farmers"       element={<ProtectedRoute><Layout><Farmers /></Layout></ProtectedRoute>} />
         <Route path="/providers"     element={<ProtectedRoute><Layout><ProviderRegistry /></Layout></ProtectedRoute>} />
         <Route path="/employees"     element={<ProtectedRoute><Layout><EmployeeManagement /></Layout></ProtectedRoute>} />
-        <Route path="/ponds"         element={<ProtectedRoute><Layout><PondMonitoring /></Layout></ProtectedRoute>} />
-        <Route path="/daily-logs"    element={<ProtectedRoute><Layout><DailyLogs /></Layout></ProtectedRoute>} />
         <Route path="/harvests"      element={<ProtectedRoute><Layout><HarvestManagement /></Layout></ProtectedRoute>} />
         <Route path="/certifications"element={<ProtectedRoute><Layout><Certifications /></Layout></ProtectedRoute>} />
         <Route path="/iot-devices"   element={<ProtectedRoute><Layout><IoTDevices /></Layout></ProtectedRoute>} />

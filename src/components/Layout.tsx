@@ -45,8 +45,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       label: 'Farmers',
       items: [
         { icon: Users, label: 'Farmer Profiles', path: '/farmers' },
-        { icon: Waves, label: 'Pond Monitoring', path: '/ponds' },
-        { icon: ClipboardList, label: 'Daily Logs', path: '/daily-logs' },
         { icon: Package, label: 'Harvest Management', path: '/harvests' },
         { icon: Award, label: 'Certifications', path: '/certifications' },
       ],

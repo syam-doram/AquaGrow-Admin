@@ -1,20 +1,22 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Users, Search, Filter, MapPin, ShieldCheck, Wifi, WifiOff,
+  Users, Search, Filter, MapPin, Wifi, WifiOff,
   Phone, Activity, TrendingUp, Award, CreditCard, BarChart3,
-  Eye, RefreshCw, Bell, ChevronRight, Waves,
-  ArrowLeft, Calendar, Info, Star, Database,
-  Fish, Droplets, AlertTriangle, CheckCircle2, XCircle,
+  RefreshCw, Waves, ArrowLeft, Calendar, Info, Star, Database,
+  Fish, AlertTriangle, ClipboardList, Pill,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   fetchFarmers, fetchPonds, fetchIntelligence,
+  fetchFeedLogs, fetchMedicineLogs,
   type LiveFarmer, type LivePond, type IntelligenceData,
+  type LiveFeedLog, type LiveMedicineLog,
 } from '../services/aquagrowApi';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ViewMode = 'list' | 'detail';
-type Tab = 'all' | 'active' | 'ponds' | 'insights';
+type Tab = 'all' | 'active' | 'ponds' | 'logs' | 'insights';
+type LogTab = 'feed' | 'medicine';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const SUB_COLORS: Record<string, string> = {
@@ -194,13 +196,18 @@ const FarmerDetail = ({ farmer, ponds, onBack }: {
 // ═══════════════════════════════════════════════════════════════════════════════
 const Farmers = () => {
   const [tab, setTab]               = useState<Tab>('all');
+  const [logTab, setLogTab]         = useState<LogTab>('feed');
   const [farmers, setFarmers]       = useState<LiveFarmer[]>([]);
   const [ponds, setPonds]           = useState<LivePond[]>([]);
   const [intel, setIntel]           = useState<IntelligenceData | null>(null);
+  const [feedLogs, setFeedLogs]     = useState<LiveFeedLog[]>([]);
+  const [medLogs, setMedLogs]       = useState<LiveMedicineLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
   const [loading, setLoading]       = useState(true);
   const [apiStatus, setApiStatus]   = useState<'online' | 'offline' | 'loading'>('loading');
   const [lastSync, setLastSync]     = useState<string | null>(null);
   const [search, setSearch]         = useState('');
+  const [logSearch, setLogSearch]   = useState('');
   const [filterSub, setFilterSub]   = useState('all');
   const [viewMode, setViewMode]     = useState<ViewMode>('list');
   const [selected, setSelected]     = useState<LiveFarmer | null>(null);
@@ -227,6 +234,17 @@ const Farmers = () => {
     const t = setInterval(load, 60 * 1000);
     return () => clearInterval(t);
   }, [load]);
+
+  // Load logs when logs tab is selected
+  useEffect(() => {
+    if (tab === 'logs' && feedLogs.length === 0 && medLogs.length === 0) {
+      setLogsLoading(true);
+      Promise.all([fetchFeedLogs(), fetchMedicineLogs()])
+        .then(([f, m]) => { setFeedLogs(f); setMedLogs(m); })
+        .catch(console.error)
+        .finally(() => setLogsLoading(false));
+    }
+  }, [tab]);
 
   // ── Stats ────────────────────────────────────────────────────────────────────
   const stats = useMemo(() => ({
@@ -317,12 +335,13 @@ const Farmers = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-white/3 rounded-2xl border border-white/5 w-fit">
+      <div className="flex flex-wrap gap-1 p-1 bg-white/3 rounded-2xl border border-white/5 w-fit">
         {([
-          { id: 'all', label: 'All Farmers', icon: Users },
-          { id: 'active', label: 'Subscribed', icon: Star },
-          { id: 'ponds', label: 'Pond Monitor', icon: Waves },
-          { id: 'insights', label: 'Insights', icon: BarChart3 },
+          { id: 'all',      label: 'All Farmers',  icon: Users },
+          { id: 'active',   label: 'Subscribed',   icon: Star },
+          { id: 'ponds',    label: 'Pond Monitor', icon: Waves },
+          { id: 'logs',     label: 'Daily Logs',   icon: ClipboardList },
+          { id: 'insights', label: 'Insights',     icon: BarChart3 },
         ] as const).map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all ${
@@ -457,6 +476,140 @@ const Farmers = () => {
                 {ponds.map(p => <PondCard key={p._id} pond={p} />)}
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      {/* ═══════ TAB: DAILY LOGS ═══════ */}
+      {tab === 'logs' && (
+        <div className="space-y-5">
+          {/* Sub-tabs */}
+          <div className="flex gap-1 p-1 bg-white/5 rounded-xl w-fit">
+            <button onClick={() => setLogTab('feed')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                logTab === 'feed' ? 'bg-emerald-600 text-white' : 'text-zinc-400 hover:text-white'
+              }`}>
+              <ClipboardList size={14} /> Feed Logs
+            </button>
+            <button onClick={() => setLogTab('medicine')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                logTab === 'medicine' ? 'bg-purple-600 text-white' : 'text-zinc-400 hover:text-white'
+              }`}>
+              <Pill size={14} /> Medicine Logs
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="relative max-w-md">
+            <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input value={logSearch} onChange={e => setLogSearch(e.target.value)}
+              placeholder="Search by farmer or pond..."
+              className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/50" />
+          </div>
+
+          {/* Feed Logs Table */}
+          {logTab === 'feed' && (
+            <div className="card overflow-hidden">
+              <div className="p-5 border-b border-white/5 flex items-center justify-between">
+                <h3 className="font-bold flex items-center gap-2">
+                  Feed Logs
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LIVE</span>
+                </h3>
+                <span className="text-xs text-zinc-500">
+                  {logsLoading ? 'Loading…' : `${feedLogs.filter(l => !logSearch || l.farmer?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.pond?.name?.toLowerCase().includes(logSearch.toLowerCase())).length} records`}
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                {logsLoading ? (
+                  <div className="p-10 text-center text-zinc-500">Loading feed logs…</div>
+                ) : feedLogs.length === 0 ? (
+                  <div className="p-10 text-center text-zinc-600">No feed logs found in database.</div>
+                ) : (
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-white/5 bg-white/3">
+                        {['Farmer','Phone','Pond','Feed Type','Qty','Unit','Date'].map(h => (
+                          <th key={h} className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {feedLogs
+                        .filter(l => !logSearch ||
+                          l.farmer?.name?.toLowerCase().includes(logSearch.toLowerCase()) ||
+                          l.pond?.name?.toLowerCase().includes(logSearch.toLowerCase())
+                        )
+                        .map(log => (
+                          <tr key={log._id} className="hover:bg-white/3 transition-colors">
+                            <td className="px-5 py-3.5 font-bold text-sm">{log.farmer?.name ?? '—'}</td>
+                            <td className="px-5 py-3.5 text-xs text-zinc-500">{log.farmer?.phoneNumber ?? '—'}</td>
+                            <td className="px-5 py-3.5 text-sm text-zinc-300">{log.pond?.name ?? log.pondId?.slice(-6) ?? '—'}</td>
+                            <td className="px-5 py-3.5 text-xs text-zinc-400 capitalize">{log.feedType ?? '—'}</td>
+                            <td className="px-5 py-3.5 font-mono font-bold text-emerald-400">{log.quantity}</td>
+                            <td className="px-5 py-3.5 text-xs text-zinc-500">{log.unit ?? 'kg'}</td>
+                            <td className="px-5 py-3.5 text-xs text-zinc-500">
+                              {log.date ? new Date(log.date).toLocaleDateString('en-IN') : new Date(log.createdAt).toLocaleDateString('en-IN')}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Medicine Logs Table */}
+          {logTab === 'medicine' && (
+            <div className="card overflow-hidden">
+              <div className="p-5 border-b border-white/5 flex items-center justify-between">
+                <h3 className="font-bold flex items-center gap-2">
+                  Medicine Logs
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">LIVE</span>
+                </h3>
+                <span className="text-xs text-zinc-500">
+                  {logsLoading ? 'Loading…' : `${medLogs.filter(l => !logSearch || l.farmer?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.pond?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.medicineName?.toLowerCase().includes(logSearch.toLowerCase())).length} records`}
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                {logsLoading ? (
+                  <div className="p-10 text-center text-zinc-500">Loading medicine logs…</div>
+                ) : medLogs.length === 0 ? (
+                  <div className="p-10 text-center text-zinc-600">No medicine logs found in database.</div>
+                ) : (
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-white/5 bg-white/3">
+                        {['Farmer','Phone','Pond','Medicine','Dosage','Qty','Date'].map(h => (
+                          <th key={h} className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {medLogs
+                        .filter(l => !logSearch ||
+                          l.farmer?.name?.toLowerCase().includes(logSearch.toLowerCase()) ||
+                          l.pond?.name?.toLowerCase().includes(logSearch.toLowerCase()) ||
+                          l.medicineName?.toLowerCase().includes(logSearch.toLowerCase())
+                        )
+                        .map(log => (
+                          <tr key={log._id} className="hover:bg-white/3 transition-colors">
+                            <td className="px-5 py-3.5 font-bold text-sm">{log.farmer?.name ?? '—'}</td>
+                            <td className="px-5 py-3.5 text-xs text-zinc-500">{log.farmer?.phoneNumber ?? '—'}</td>
+                            <td className="px-5 py-3.5 text-sm text-zinc-300">{log.pond?.name ?? log.pondId?.slice(-6) ?? '—'}</td>
+                            <td className="px-5 py-3.5 font-bold text-purple-400">{log.medicineName ?? '—'}</td>
+                            <td className="px-5 py-3.5 text-xs text-zinc-400">{log.dosage ?? '—'}</td>
+                            <td className="px-5 py-3.5 font-mono text-sm">{log.quantity ?? '—'} {log.unit ?? ''}</td>
+                            <td className="px-5 py-3.5 text-xs text-zinc-500">
+                              {log.date ? new Date(log.date).toLocaleDateString('en-IN') : new Date(log.createdAt).toLocaleDateString('en-IN')}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
           )}
         </div>
       )}
