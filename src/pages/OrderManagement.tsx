@@ -106,37 +106,35 @@ const ADMIN_TO_API_STATUS: Record<string, string> = {
 
 function normalizeDbOrder(o: LiveShopOrder): ShopOrder {
   const items: ShopOrderItem[] = (o.items || []).map((it: any, i: number) => ({
-    id: `${o._id}-item-${i}`,
-    productId: it.productId || `prod-${i}`,
-    productName: it.productName || 'Unknown Product',
-    category: (it.category as ProductCategory) || 'Feed',
-    quantity: it.qty ?? it.quantity ?? 1,
-    unit: it.unit || 'kg',
-    unitPrice: it.unitPrice ?? 0,
-    totalPrice: it.subtotal ?? (it.qty ?? 1) * (it.unitPrice ?? 0),
-    batchNumber: '',
-    expiryDate: '',
+    productId:    it.productId || `prod-${i}`,
+    productName:  it.productName || it.name || 'Unknown Product',
+    category:     (it.category as ProductCategory) || 'Feed',
+    quantity:     it.qty ?? it.quantity ?? 1,
+    unit:         it.unit || 'kg',
+    pricePerUnit: it.unitPrice ?? it.price ?? it.pricePerUnit ?? 0,   // maps backend unitPrice → ShopOrderItem.pricePerUnit
+    totalPrice:   it.subtotal ?? (it.qty ?? 1) * (it.unitPrice ?? 0),
   }));
 
   return {
-    id: `DB-${o._id.slice(-8).toUpperCase()}`,
-    _dbId: o._id,                           // keep original ID for API calls
-    farmerId: o.farmerId,
-    farmerName: o.farmerName || 'Farmer',
-    farmerPhone: o.farmerPhone || '',
+    id:              `DB-${o._id.slice(-8).toUpperCase()}`,
+    _dbId:           o._id,                    // keep original _id for API calls
+    farmerId:        o.farmerId,
+    farmerName:      o.farmerName || 'Farmer',
+    farmerPhone:     o.farmerPhone || '',
     deliveryAddress: 'See farmer profile',
-    deliveryCharge: 0,
+    deliveryCharge:  0,
     items,
-    subtotal:    o.totalAmount ?? 0,
-    discount:    0,
-    finalAmount: o.totalAmount ?? 0,
-    paymentMethod: 'COD',
-    paymentStatus: 'PENDING',
-    status: DB_STATUS_MAP[o.status] ?? 'PENDING',
-    createdAt: o.createdAt?.split('T')[0] ?? new Date().toISOString().split('T')[0],
-    source: 'DB_LIVE',                      // flag to distinguish live orders
-    providerName: o.providerName || '',
-  } as ShopOrder & { _dbId: string; source: string; providerName: string };
+    totalAmount:     o.totalAmount ?? 0,       // required by ShopOrder
+    discountAmount:  0,                        // required by ShopOrder
+    finalAmount:     o.totalAmount ?? 0,
+    paymentMethod:   'COD' as const,
+    paymentStatus:   'PENDING' as const,
+    status:          DB_STATUS_MAP[o.status] ?? 'PENDING',
+    createdAt:       o.createdAt?.split('T')[0] ?? new Date().toISOString().split('T')[0],
+    updatedAt:       o.updatedAt ?? o.createdAt ?? new Date().toISOString(), // required by ShopOrder
+    source:          'DB_LIVE',                // flag to distinguish live orders
+    providerName:    o.providerName || '',
+  } as unknown as ShopOrder & { _dbId: string; source: string; providerName: string };
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
