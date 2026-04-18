@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   BarChart3, TrendingUp, TrendingDown, Globe, MapPin, ArrowUpRight,
   ArrowDownRight, Activity, Zap, Target, Bell, Download, Calendar,
   Scale, Star, Users, Cpu, RefreshCw, PieChart, Eye, AlertTriangle,
-  CheckCircle2, ChevronUp, ChevronDown, DollarSign, Layers, Filter
+  CheckCircle2, ChevronUp, ChevronDown, DollarSign, Layers, Filter,
+  Search, Wifi, WifiOff, Phone, Award, CreditCard, Database, Fish,
+  ClipboardList, Pill, Waves, ArrowLeft, Info,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -12,9 +14,20 @@ import {
   Scatter, ZAxis
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
+import {
+  fetchFarmers, fetchPonds, fetchIntelligence,
+  fetchFeedLogs, fetchMedicineLogs,
+  type LiveFarmer, type LivePond, type IntelligenceData,
+  type LiveFeedLog, type LiveMedicineLog,
+} from '../services/aquagrowApi';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+type ViewMode = 'list' | 'detail';
+type LogTab  = 'feed' | 'medicine';
 type Tab =
+  // Farmer management
+  | 'fm_all' | 'fm_active' | 'fm_ponds' | 'fm_logs' | 'fm_insights'
+  // Market intelligence
   | 'prices' | 'trends' | 'demandsupply' | 'sizebased'
   | 'location' | 'buyerbehavior' | 'farmerperformance'
   | 'smartrec' | 'alerts' | 'external' | 'reports';
@@ -162,79 +175,564 @@ const InfoCard = ({ label, value, sub, color }: { label: string; value: string |
   </div>
 );
 
+// ─── Farmer Helpers ───────────────────────────────────────────────────────────
+const SUB_COLORS: Record<string, string> = {
+  pro_diamond: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  pro_gold:    'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  pro_silver:  'bg-zinc-400/20 text-zinc-300 border-zinc-400/30',
+  pro:         'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  free:        'bg-zinc-700/20 text-zinc-500 border-zinc-700/30',
+};
+const ALERT_COLORS_FM: Record<string, string> = {
+  CRITICAL_LOW_DO: 'bg-red-500/20 text-red-400',
+  PH_OUT_OF_RANGE: 'bg-orange-500/20 text-orange-400',
+  HIGH_AMMONIA:    'bg-yellow-500/20 text-yellow-400',
+  HIGH_MORTALITY:  'bg-red-600/20 text-red-300',
+  HARVEST_READY:   'bg-emerald-500/20 text-emerald-400',
+  PEAK_WSSV_RISK:  'bg-purple-500/20 text-purple-400',
+};
+const STAGE_COLORS_FM: Record<string, string> = {
+  Nursery:         'bg-cyan-500/20 text-cyan-400',
+  'Early Growth':  'bg-green-500/20 text-green-400',
+  'Mid Growth':    'bg-blue-500/20 text-blue-400',
+  'Pre-Harvest':   'bg-amber-500/20 text-amber-400',
+  'Harvest Ready': 'bg-emerald-500/20 text-emerald-400',
+  Harvest:         'bg-emerald-500/20 text-emerald-400',
+};
+function getInitials(name: string) {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+const PondCard = ({ pond }: { pond: LivePond }) => (
+  <motion.div whileHover={{ y: -2 }} className="card p-5 hover:border-emerald-500/30 transition-colors">
+    <div className="flex items-start justify-between mb-3">
+      <div>
+        <p className="font-bold">{pond.name}</p>
+        <p className="text-xs text-zinc-500">{pond.species || 'Vannamei'}</p>
+      </div>
+      <div className="flex flex-col items-end gap-1">
+        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${STAGE_COLORS_FM[pond.stage] || 'bg-zinc-600/20 text-zinc-400'}`}>{pond.stage}</span>
+        <span className="text-[10px] text-zinc-500">DOC {pond.doc}</span>
+      </div>
+    </div>
+    {pond.lastWaterLog ? (
+      <div className="grid grid-cols-3 gap-2 mb-3 p-2.5 rounded-xl bg-white/3 border border-white/5">
+        {[['pH', pond.lastWaterLog.ph, (v: number) => v < 7 || v > 9], ['DO', pond.lastWaterLog.do, (v: number) => v < 4], ['Mort.', pond.lastWaterLog.mortality, (v: number) => v > 50]].map(([k, v, bad]: any) => (
+          <div key={String(k)} className="text-center">
+            <p className="text-[10px] text-zinc-500">{k}</p>
+            <p className={`text-sm font-bold ${v != null && bad(v) ? 'text-red-400' : 'text-white'}`}>{v?.toFixed?.(1) ?? v ?? '—'}</p>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div className="p-2 text-center text-[10px] text-zinc-600 bg-white/3 rounded-xl mb-3">No water logs</div>
+    )}
+    <div className="flex items-center justify-between text-xs text-zinc-500 mb-2">
+      <span>Feed 7d: <b className="text-white">{pond.feedLast7Days.toFixed(1)} kg</b></span>
+      {pond.size && <span>Size: <b className="text-white">{pond.size} ac</b></span>}
+    </div>
+    {pond.alerts.length > 0 && (
+      <div className="flex flex-wrap gap-1">
+        {pond.alerts.map(a => (
+          <span key={a} className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${ALERT_COLORS_FM[a] || 'bg-zinc-600/20 text-zinc-400'}`}>{a.replace(/_/g, ' ')}</span>
+        ))}
+      </div>
+    )}
+  </motion.div>
+);
+
+const FarmerDetail = ({ farmer, ponds, onBack }: { farmer: LiveFarmer; ponds: LivePond[]; onBack: () => void }) => {
+  const fp = ponds.filter(p => p.userId === farmer._id);
+  const active = fp.filter(p => p.status === 'active');
+  const harvest = fp.filter(p => p.alerts.includes('HARVEST_READY'));
+  const critical = fp.filter(p => p.alerts.some(a => ['CRITICAL_LOW_DO','HIGH_AMMONIA','HIGH_MORTALITY'].includes(a)));
+  return (
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+      className="fixed inset-0 z-50 bg-zinc-950 flex flex-col overflow-y-auto">
+      <div className="bg-zinc-900/50 backdrop-blur-md border-b border-white/5 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center gap-4">
+          <button onClick={onBack} className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all"><ArrowLeft size={20} /></button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-display font-bold">{farmer.name}</h2>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${SUB_COLORS[farmer.subscriptionStatus] || SUB_COLORS.free}`}>{farmer.subscriptionStatus.replace('_',' ').toUpperCase()}</span>
+            </div>
+            <p className="text-[10px] text-zinc-500 font-mono">{farmer._id} · {farmer.location || 'No location'}</p>
+          </div>
+        </div>
+        <span className="text-xs text-zinc-500 hidden md:block">Joined {new Date(farmer.createdAt).toLocaleDateString('en-IN')}</span>
+      </div>
+      <div className="max-w-7xl mx-auto w-full p-6 space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[{label:'Total Ponds',value:fp.length,color:'text-blue-400'},{label:'Active',value:active.length,color:'text-emerald-400'},{label:'Harvest Ready',value:harvest.length,color:'text-amber-400'},{label:'Critical',value:critical.length,color:'text-red-400'}].map(({label,value,color}) => (
+            <div key={label} className="card p-4 text-center"><p className="text-[10px] text-zinc-500 uppercase font-bold">{label}</p><p className={`text-3xl font-display font-bold mt-1 ${color}`}>{value}</p></div>
+          ))}
+        </div>
+        <div className="card p-6">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Info size={18} className="text-emerald-400" /> Profile</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-3 rounded-xl bg-white/3"><p className="text-[10px] text-zinc-500 mb-1">Phone</p><p className="font-bold flex items-center gap-1"><Phone size={12} className="text-emerald-400" />{farmer.phoneNumber}</p></div>
+            <div className="p-3 rounded-xl bg-white/3"><p className="text-[10px] text-zinc-500 mb-1">Location</p><p className="font-bold flex items-center gap-1"><MapPin size={12} className="text-emerald-400" />{farmer.location || '—'}</p></div>
+            <div className="p-3 rounded-xl bg-white/3"><p className="text-[10px] text-zinc-500 mb-1">Plan</p><p className="font-bold">{farmer.subscriptionStatus.replace('_',' ')}</p></div>
+            <div className="p-3 rounded-xl bg-white/3"><p className="text-[10px] text-zinc-500 mb-1">Joined</p><p className="font-bold flex items-center gap-1"><Calendar size={12} className="text-emerald-400" />{new Date(farmer.createdAt).toLocaleDateString('en-IN')}</p></div>
+          </div>
+        </div>
+        <div>
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Fish size={18} className="text-cyan-400" /> Ponds ({fp.length})</h3>
+          {fp.length === 0 ? (
+            <div className="card p-10 text-center"><Fish size={28} className="mx-auto text-zinc-600 mb-2" /><p className="text-zinc-500 text-sm">No ponds found</p></div>
+          ) : (
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">{fp.map(p => <PondCard key={p._id} pond={p} />)}</div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const MarketIntelligence = () => {
-  const [tab, setTab] = useState<Tab>('prices');
+  // ── Market Intelligence state ────────────────────────────────────────────────
+  const [tab, setTab]               = useState<Tab>('fm_all');
   const [filterSpecies, setFilterSpecies] = useState('all');
   const [priceInput, setPriceInput] = useState<Record<number, number>>({});
-  const [editMode, setEditMode] = useState(false);
-  const [range, setRange] = useState('weekly');
+  const [editMode, setEditMode]     = useState(false);
+  const [range, setRange]           = useState('weekly');
+  // ── Farmer Management state ──────────────────────────────────────────────────
+  const [logTab, setLogTab]         = useState<LogTab>('feed');
+  const [farmers, setFarmers]       = useState<LiveFarmer[]>([]);
+  const [ponds, setPonds]           = useState<LivePond[]>([]);
+  const [intel, setIntel]           = useState<IntelligenceData | null>(null);
+  const [feedLogs, setFeedLogs]     = useState<LiveFeedLog[]>([]);
+  const [medLogs, setMedLogs]       = useState<LiveMedicineLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [fmLoading, setFmLoading]   = useState(true);
+  const [apiStatus, setApiStatus]   = useState<'online' | 'offline' | 'loading'>('loading');
+  const [lastSync, setLastSync]     = useState<string | null>(null);
+  const [search, setSearch]         = useState('');
+  const [logSearch, setLogSearch]   = useState('');
+  const [filterSub, setFilterSub]   = useState('all');
+  const [viewMode, setViewMode]     = useState<ViewMode>('list');
+  const [selected, setSelected]     = useState<LiveFarmer | null>(null);
+
+  const load = useCallback(async () => {
+    setFmLoading(true); setApiStatus('loading');
+    try {
+      const [f, p, i] = await Promise.allSettled([fetchFarmers(), fetchPonds(), fetchIntelligence()]);
+      if (f.status === 'fulfilled') setFarmers(f.value);
+      if (p.status === 'fulfilled') setPonds(p.value);
+      if (i.status === 'fulfilled') setIntel(i.value);
+      setApiStatus('online'); setLastSync(new Date().toLocaleTimeString());
+    } catch { setApiStatus('offline'); }
+    finally { setFmLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { const t = setInterval(load, 60_000); return () => clearInterval(t); }, [load]);
+  useEffect(() => {
+    if (tab === 'fm_logs' && feedLogs.length === 0 && medLogs.length === 0) {
+      setLogsLoading(true);
+      Promise.all([fetchFeedLogs(), fetchMedicineLogs()])
+        .then(([f, m]) => { setFeedLogs(f); setMedLogs(m); })
+        .catch(console.error)
+        .finally(() => setLogsLoading(false));
+    }
+  }, [tab]);
+
+  const fmStats = useMemo(() => ({
+    total:     farmers.length,
+    active:    farmers.filter(f => f.subscriptionStatus !== 'free').length,
+    premium:   farmers.filter(f => ['pro_diamond','pro_gold'].includes(f.subscriptionStatus)).length,
+    withPonds: new Set(ponds.map(p => p.userId)).size,
+  }), [farmers, ponds]);
+
+  const filtered = useMemo(() => {
+    let list = farmers;
+    if (tab === 'fm_active') list = list.filter(f => f.subscriptionStatus !== 'free');
+    if (search) list = list.filter(f =>
+      f.name.toLowerCase().includes(search.toLowerCase()) ||
+      f.phoneNumber.includes(search) ||
+      (f.location || '').toLowerCase().includes(search.toLowerCase())
+    );
+    if (filterSub !== 'all') list = list.filter(f => f.subscriptionStatus === filterSub);
+    return list;
+  }, [farmers, tab, search, filterSub]);
 
   const filteredPrices = useMemo(() =>
     filterSpecies === 'all' ? PRICE_TABLE : PRICE_TABLE.filter(p => p.species === filterSpecies),
     [filterSpecies]
   );
 
-  const tabs: { id: Tab; label: string; icon: React.FC<any> }[] = [
-    { id: 'prices',           label: 'Price Tracking',     icon: DollarSign },
-    { id: 'trends',           label: 'Trend Analysis',     icon: TrendingUp },
-    { id: 'demandsupply',     label: 'Demand & Supply',    icon: Scale },
-    { id: 'sizebased',        label: 'Size-Based',         icon: Layers },
-    { id: 'location',         label: 'Location Insights',  icon: MapPin },
-    { id: 'buyerbehavior',    label: 'Buyer Behavior',     icon: Eye },
-    { id: 'farmerperformance',label: 'Farmer vs Market',   icon: Users },
-    { id: 'smartrec',         label: 'Smart Recs',         icon: Cpu },
-    { id: 'alerts',           label: 'Alerts',             icon: Bell },
-    { id: 'external',         label: 'External Market',    icon: Globe },
-    { id: 'reports',          label: 'Reports',            icon: BarChart3 },
-  ];
+  const openDetail = (f: LiveFarmer) => { setSelected(f); setViewMode('detail'); };
+  const isFarmerTab = ['fm_all','fm_active','fm_ponds','fm_logs','fm_insights'].includes(tab);
 
   return (
-    <div className="space-y-8">
+    <>
+      <AnimatePresence>
+        {viewMode === 'detail' && selected && (
+          <FarmerDetail farmer={selected} ponds={ponds} onBack={() => { setViewMode('list'); setSelected(null); }} />
+        )}
+      </AnimatePresence>
+      <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-display font-bold tracking-tight mb-2">Market Intelligence</h1>
-          <p className="text-zinc-400">Real-time price engine, demand insights, and AI-powered harvest recommendations.</p>
+          <h1 className="text-4xl font-display font-bold tracking-tight mb-2">Farm Intelligence</h1>
+          <p className="text-zinc-400">Farmer management, live pond data, market prices and AI-powered harvest recommendations.</p>
         </div>
-        <div className="flex gap-3">
-          <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl p-1">
-            {['daily','weekly','monthly'].map(r => (
-              <button key={r} onClick={() => setRange(r)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${range === r ? 'bg-emerald-600 text-white' : 'text-zinc-400 hover:text-white'}`}>{r}</button>
+        <div className="flex items-center gap-3 flex-wrap">
+          {isFarmerTab ? (
+            <>
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold ${
+                apiStatus === 'online'  ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' :
+                apiStatus === 'offline' ? 'bg-red-500/5 border-red-500/20 text-red-400' :
+                                          'bg-zinc-500/5 border-zinc-500/20 text-zinc-500'
+              }`}>
+                {apiStatus === 'online' ? <Wifi size={12} /> : apiStatus === 'offline' ? <WifiOff size={12} /> : <RefreshCw size={12} className="animate-spin" />}
+                {apiStatus === 'online' ? 'DB Connected' : apiStatus === 'offline' ? 'DB Offline' : 'Syncing...'}
+              </div>
+              {lastSync && <span className="text-[10px] text-zinc-600">Synced {lastSync}</span>}
+              <button onClick={load} disabled={fmLoading}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10 transition-all">
+                <RefreshCw size={14} className={fmLoading ? 'animate-spin' : ''} /> Refresh
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl p-1">
+                {['daily','weekly','monthly'].map(r => (
+                  <button key={r} onClick={() => setRange(r)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${range === r ? 'bg-emerald-600 text-white' : 'text-zinc-400 hover:text-white'}`}>{r}</button>
+                ))}
+              </div>
+              <button className="btn-secondary flex items-center gap-2 text-sm"><Download size={15} />Export</button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Market pulse strip — market tabs only */}
+      {!isFarmerTab && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          {[
+            { label: 'Sentiment',    value: 'Bullish 🐂',  color: 'text-emerald-400', sub: 'High export demand' },
+            { label: 'Demand Index', value: '8.4 / 10',    color: 'text-emerald-400', sub: 'Nellore + Kochi hot' },
+            { label: 'Supply Gap',   value: '−12.5%',      color: 'text-red-400',     sub: 'Count 30 shortage' },
+            { label: 'Avg Price/kg', value: '₹472',        color: '',                 sub: 'All species blended' },
+            { label: 'Active Buyers',value: '4',           color: 'text-blue-400',    sub: 'Requesting supply' },
+            { label: 'Volatility',   value: 'Low',         color: 'text-zinc-300',    sub: 'Stable 14 days' },
+            { label: 'Best Count',   value: 'Count 30',    color: 'text-amber-400',   sub: '₹490/kg · Very High' },
+          ].map(({ label, value, color, sub }) => (
+            <div key={label} className="glass-panel p-4">
+              <p className="text-[9px] text-zinc-500 font-bold uppercase mb-1">{label}</p>
+              <p className={`text-base font-display font-bold ${color}`}>{value}</p>
+              <p className="text-[9px] text-zinc-600 mt-0.5">{sub}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Farmer KPI strip — farmer tabs only */}
+      {isFarmerTab && (
+        <>
+          {apiStatus === 'offline' && (
+            <div className="flex items-start gap-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400">
+              <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+              <div><p className="font-bold text-sm">Cannot connect to AquaGrow database</p><p className="text-xs opacity-70 mt-0.5">Ensure you're logged in as an admin. The API token must be valid.</p></div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Total Farmers',    value: fmStats.total,    color: 'bg-blue-500/10 text-blue-400',       icon: Users },
+              { label: 'Subscribed',       value: fmStats.active,   color: 'bg-emerald-500/10 text-emerald-400', icon: Star },
+              { label: 'Premium (Gold+)',  value: fmStats.premium,  color: 'bg-yellow-500/10 text-yellow-400',   icon: Award },
+              { label: 'Have Active Ponds',value: fmStats.withPonds,color: 'bg-cyan-500/10 text-cyan-400',       icon: Waves },
+            ].map(({ label, value, color, icon: Icon }) => (
+              <div key={label} className="card p-5 flex items-center gap-4">
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${color}`}><Icon size={20} /></div>
+                <div><p className="text-[10px] text-zinc-500 uppercase font-bold">{label}</p><p className="text-2xl font-display font-bold mt-0.5">{value}</p></div>
+              </div>
             ))}
           </div>
-          <button className="btn-secondary flex items-center gap-2 text-sm"><Download size={15} />Export</button>
-        </div>
-      </div>
+        </>
+      )}
 
-      {/* Market pulse strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+      {/* Tabs — grouped */}
+      <div className="space-y-2">
         {[
-          { label: 'Sentiment',    value: 'Bullish 🐂',  color: 'text-emerald-400', sub: 'High export demand' },
-          { label: 'Demand Index', value: '8.4 / 10',    color: 'text-emerald-400', sub: 'Nellore + Kochi hot' },
-          { label: 'Supply Gap',   value: '−12.5%',      color: 'text-red-400',     sub: 'Count 30 shortage' },
-          { label: 'Avg Price/kg', value: '₹472',        color: '',                 sub: 'All species blended' },
-          { label: 'Active Buyers',value: '4',           color: 'text-blue-400',    sub: 'Requesting supply' },
-          { label: 'Volatility',   value: 'Low',         color: 'text-zinc-300',    sub: 'Stable 14 days' },
-          { label: 'Best Count',   value: 'Count 30',    color: 'text-amber-400',   sub: '₹490/kg · Very High' },
-        ].map(({ label, value, color, sub }) => (
-          <div key={label} className="glass-panel p-4">
-            <p className="text-[9px] text-zinc-500 font-bold uppercase mb-1">{label}</p>
-            <p className={`text-base font-display font-bold ${color}`}>{value}</p>
-            <p className="text-[9px] text-zinc-600 mt-0.5">{sub}</p>
+          { label: '👨\u200D🌾 Farmer Management', items: [
+            { id: 'fm_all' as Tab,      label: 'All Farmers',  icon: Users },
+            { id: 'fm_active' as Tab,   label: 'Subscribed',   icon: Star },
+            { id: 'fm_ponds' as Tab,    label: 'Pond Monitor', icon: Waves },
+            { id: 'fm_logs' as Tab,     label: 'Daily Logs',   icon: ClipboardList },
+            { id: 'fm_insights' as Tab, label: 'Farm Insights',icon: BarChart3 },
+          ]},
+          { label: '📈 Market Intelligence', items: [
+            { id: 'prices' as Tab,           label: 'Price Tracking',    icon: DollarSign },
+            { id: 'trends' as Tab,           label: 'Trend Analysis',    icon: TrendingUp },
+            { id: 'demandsupply' as Tab,     label: 'Demand & Supply',   icon: Scale },
+            { id: 'sizebased' as Tab,        label: 'Size-Based',        icon: Layers },
+            { id: 'location' as Tab,         label: 'Location Insights', icon: MapPin },
+            { id: 'buyerbehavior' as Tab,    label: 'Buyer Behavior',    icon: Eye },
+            { id: 'farmerperformance' as Tab,label: 'Farmer vs Market',  icon: Users },
+            { id: 'smartrec' as Tab,         label: 'Smart Recs',        icon: Cpu },
+            { id: 'alerts' as Tab,           label: 'Alerts',            icon: Bell },
+            { id: 'external' as Tab,         label: 'External Market',   icon: Globe },
+            { id: 'reports' as Tab,          label: 'Reports',           icon: BarChart3 },
+          ]},
+        ].map(({ label, items }) => (
+          <div key={label}>
+            <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest px-1 mb-1">{label}</p>
+            <div className="flex flex-wrap gap-1 p-1 bg-white/5 rounded-xl overflow-x-auto">
+              {items.map(t => (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-xs whitespace-nowrap transition-all ${tab === t.id ? 'bg-emerald-600 text-white shadow-lg' : 'text-zinc-400 hover:text-white'}`}>
+                  <t.icon size={13} />{t.label}
+                </button>
+              ))}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1.5 bg-white/5 rounded-2xl overflow-x-auto">
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-medium text-xs whitespace-nowrap transition-all ${tab === t.id ? 'bg-emerald-600 text-white shadow-lg' : 'text-zinc-400 hover:text-white'}`}>
-            <t.icon size={13} />{t.label}
-          </button>
-        ))}
-      </div>
+      {/* ═══════ FARMER TABS ══════════════════════════════════════════════════ */}
+
+      {/* FM: ALL / ACTIVE FARMERS */}
+      {(tab === 'fm_all' || tab === 'fm_active') && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-48">
+              <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Search by name, phone, location..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/50" />
+            </div>
+            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5">
+              <Filter size={13} className="text-zinc-500" />
+              <select value={filterSub} onChange={e => setFilterSub(e.target.value)} className="bg-transparent outline-none text-sm">
+                <option value="all">All Plans</option>
+                <option value="free">Free</option>
+                <option value="pro">Pro</option>
+                <option value="pro_silver">Silver</option>
+                <option value="pro_gold">Gold</option>
+                <option value="pro_diamond">Diamond</option>
+              </select>
+            </div>
+            <p className="flex items-center text-xs text-zinc-500 px-2">{filtered.length} farmers</p>
+          </div>
+          {fmLoading ? (
+            <div className="card p-12 text-center animate-pulse"><Database size={28} className="mx-auto text-zinc-700 mb-3" /><p className="text-zinc-600">Loading from MongoDB...</p></div>
+          ) : filtered.length === 0 ? (
+            <div className="card p-12 text-center"><Users size={32} className="mx-auto text-zinc-600 mb-3" /><p className="text-zinc-500">{farmers.length === 0 ? 'No farmers registered yet' : 'No matches found'}</p></div>
+          ) : (
+            <div className="card overflow-hidden">
+              <table className="w-full">
+                <thead><tr className="border-b border-white/5 bg-white/3">
+                  {['Farmer','Phone','Location','Plan','Ponds','Joined'].map(h => (
+                    <th key={h} className="px-5 py-3.5 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {filtered.map((f, i) => {
+                    const fPonds = ponds.filter(p => p.userId === f._id);
+                    const hasAlert = fPonds.some(p => p.alerts.length > 0);
+                    return (
+                      <motion.tr key={f._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
+                        className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer"
+                        onClick={() => openDetail(f)}>
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className={`relative w-9 h-9 rounded-xl ${hasAlert ? 'bg-red-500/20' : 'bg-emerald-500/10'} flex items-center justify-center font-bold text-xs`}>
+                              {getInitials(f.name)}
+                              {hasAlert && <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full" />}
+                            </div>
+                            <div><p className="font-semibold text-sm">{f.name}</p><p className="text-[10px] text-zinc-500 font-mono">{f._id.slice(-6)}</p></div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-sm text-zinc-300">{f.phoneNumber}</td>
+                        <td className="px-5 py-3.5 text-sm text-zinc-400">{f.location || '—'}</td>
+                        <td className="px-5 py-3.5">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${SUB_COLORS[f.subscriptionStatus] || SUB_COLORS.free}`}>
+                            {f.subscriptionStatus.replace('_',' ').toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-1.5">
+                            <Waves size={12} className="text-blue-400" />
+                            <span className="text-sm font-bold">{fPonds.length}</span>
+                            {fPonds.filter(p => p.status === 'active').length > 0 && (
+                              <span className="text-[10px] text-emerald-400">({fPonds.filter(p => p.status === 'active').length} active)</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-xs text-zinc-500">{new Date(f.createdAt).toLocaleDateString('en-IN')}</td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* FM: POND MONITOR */}
+      {tab === 'fm_ponds' && (
+        <div className="space-y-5">
+          {fmLoading ? (
+            <div className="card p-12 text-center animate-pulse"><Database size={28} className="mx-auto text-zinc-700 mb-3" /><p className="text-zinc-600">Loading ponds...</p></div>
+          ) : ponds.length === 0 ? (
+            <div className="card p-12 text-center"><Fish size={32} className="mx-auto text-zinc-600 mb-3" /><p className="text-zinc-500">No ponds found in database</p></div>
+          ) : (
+            <>
+              {ponds.some(p => p.alerts.length > 0) && (
+                <div className="card p-5 border border-red-500/20 bg-red-500/5">
+                  <p className="text-red-400 font-bold text-sm mb-3 flex items-center gap-2"><AlertTriangle size={15} /> Critical Pond Alerts</p>
+                  <div className="grid md:grid-cols-2 gap-2">
+                    {ponds.filter(p => p.alerts.some(a => ['CRITICAL_LOW_DO','HIGH_AMMONIA','HIGH_MORTALITY'].includes(a))).slice(0,6).map(p => (
+                      <div key={p._id} className="flex items-center gap-2 text-xs p-2 rounded-lg bg-red-500/10">
+                        <AlertTriangle size={11} className="text-red-400 shrink-0" />
+                        <span className="font-bold">{p.name}</span>
+                        <span className="text-zinc-400">({p.farmer?.name || p.userId.slice(-6)})</span>
+                        <span className="text-red-300">{p.alerts.join(', ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {ponds.map(p => <PondCard key={p._id} pond={p} />)}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* FM: DAILY LOGS */}
+      {tab === 'fm_logs' && (
+        <div className="space-y-5">
+          <div className="flex gap-1 p-1 bg-white/5 rounded-xl w-fit">
+            <button onClick={() => setLogTab('feed')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${logTab === 'feed' ? 'bg-emerald-600 text-white' : 'text-zinc-400 hover:text-white'}`}><ClipboardList size={14} /> Feed Logs</button>
+            <button onClick={() => setLogTab('medicine')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${logTab === 'medicine' ? 'bg-purple-600 text-white' : 'text-zinc-400 hover:text-white'}`}><Pill size={14} /> Medicine Logs</button>
+          </div>
+          <div className="relative max-w-md">
+            <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input value={logSearch} onChange={e => setLogSearch(e.target.value)} placeholder="Search by farmer or pond..."
+              className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/50" />
+          </div>
+          {logTab === 'feed' && (
+            <div className="card overflow-hidden">
+              <div className="p-5 border-b border-white/5 flex items-center justify-between">
+                <h3 className="font-bold flex items-center gap-2">Feed Logs <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LIVE</span></h3>
+                <span className="text-xs text-zinc-500">{logsLoading ? 'Loading…' : `${feedLogs.filter(l => !logSearch || l.farmer?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.pond?.name?.toLowerCase().includes(logSearch.toLowerCase())).length} records`}</span>
+              </div>
+              <div className="overflow-x-auto">
+                {logsLoading ? <div className="p-10 text-center text-zinc-500">Loading feed logs…</div>
+                 : feedLogs.length === 0 ? <div className="p-10 text-center text-zinc-600">No feed logs found in database.</div>
+                 : (
+                  <table className="w-full text-left"><thead><tr className="border-b border-white/5 bg-white/3">
+                    {['Farmer','Phone','Pond','Feed Type','Qty','Unit','Date'].map(h => <th key={h} className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>)}
+                  </tr></thead><tbody className="divide-y divide-white/5">
+                    {feedLogs.filter(l => !logSearch || l.farmer?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.pond?.name?.toLowerCase().includes(logSearch.toLowerCase())).map(log => (
+                      <tr key={log._id} className="hover:bg-white/3 transition-colors">
+                        <td className="px-5 py-3.5 font-bold text-sm">{log.farmer?.name ?? '—'}</td>
+                        <td className="px-5 py-3.5 text-xs text-zinc-500">{log.farmer?.phoneNumber ?? '—'}</td>
+                        <td className="px-5 py-3.5 text-sm text-zinc-300">{log.pond?.name ?? log.pondId?.slice(-6) ?? '—'}</td>
+                        <td className="px-5 py-3.5 text-xs text-zinc-400 capitalize">{log.feedType ?? '—'}</td>
+                        <td className="px-5 py-3.5 font-mono font-bold text-emerald-400">{log.quantity}</td>
+                        <td className="px-5 py-3.5 text-xs text-zinc-500">{log.unit ?? 'kg'}</td>
+                        <td className="px-5 py-3.5 text-xs text-zinc-500">{log.date ? new Date(log.date).toLocaleDateString('en-IN') : new Date(log.createdAt).toLocaleDateString('en-IN')}</td>
+                      </tr>
+                    ))}
+                  </tbody></table>
+                )}
+              </div>
+            </div>
+          )}
+          {logTab === 'medicine' && (
+            <div className="card overflow-hidden">
+              <div className="p-5 border-b border-white/5 flex items-center justify-between">
+                <h3 className="font-bold flex items-center gap-2">Medicine Logs <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">LIVE</span></h3>
+                <span className="text-xs text-zinc-500">{logsLoading ? 'Loading…' : `${medLogs.filter(l => !logSearch || l.farmer?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.pond?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.medicineName?.toLowerCase().includes(logSearch.toLowerCase())).length} records`}</span>
+              </div>
+              <div className="overflow-x-auto">
+                {logsLoading ? <div className="p-10 text-center text-zinc-500">Loading medicine logs…</div>
+                 : medLogs.length === 0 ? <div className="p-10 text-center text-zinc-600">No medicine logs found in database.</div>
+                 : (
+                  <table className="w-full text-left"><thead><tr className="border-b border-white/5 bg-white/3">
+                    {['Farmer','Phone','Pond','Medicine','Dosage','Qty','Date'].map(h => <th key={h} className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>)}
+                  </tr></thead><tbody className="divide-y divide-white/5">
+                    {medLogs.filter(l => !logSearch || l.farmer?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.pond?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.medicineName?.toLowerCase().includes(logSearch.toLowerCase())).map(log => (
+                      <tr key={log._id} className="hover:bg-white/3 transition-colors">
+                        <td className="px-5 py-3.5 font-bold text-sm">{log.farmer?.name ?? '—'}</td>
+                        <td className="px-5 py-3.5 text-xs text-zinc-500">{log.farmer?.phoneNumber ?? '—'}</td>
+                        <td className="px-5 py-3.5 text-sm text-zinc-300">{log.pond?.name ?? log.pondId?.slice(-6) ?? '—'}</td>
+                        <td className="px-5 py-3.5 font-bold text-purple-400">{log.medicineName ?? '—'}</td>
+                        <td className="px-5 py-3.5 text-xs text-zinc-400">{log.dosage ?? '—'}</td>
+                        <td className="px-5 py-3.5 font-mono text-sm">{log.quantity ?? '—'} {log.unit ?? ''}</td>
+                        <td className="px-5 py-3.5 text-xs text-zinc-500">{log.date ? new Date(log.date).toLocaleDateString('en-IN') : new Date(log.createdAt).toLocaleDateString('en-IN')}</td>
+                      </tr>
+                    ))}
+                  </tbody></table>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* FM: INSIGHTS */}
+      {tab === 'fm_insights' && (
+        <div className="space-y-6">
+          {intel ? (
+            <>
+              <div className="card p-6">
+                <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Activity size={18} className="text-emerald-400" /> Culture Stage Distribution</h3>
+                <div className="space-y-3">
+                  {Object.entries(intel.stageDistribution).map(([stage, count]) => {
+                    const pct = intel.summary.activePonds ? Math.round((count / intel.summary.activePonds) * 100) : 0;
+                    return (
+                      <div key={stage}>
+                        <div className="flex items-center justify-between text-sm mb-1"><span>{stage}</span><span className="text-zinc-400">{count} ponds ({pct}%)</span></div>
+                        <div className="h-2 bg-white/5 rounded-full overflow-hidden"><motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8 }} className="h-full bg-emerald-500 rounded-full" /></div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="card p-6">
+                <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><CreditCard size={18} className="text-blue-400" /> Subscription Plans</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {Object.entries(intel.subscriptionBreakdown).map(([plan, count]) => (
+                    <div key={plan} className="p-4 rounded-xl bg-white/3 border border-white/5 text-center">
+                      <p className="text-xs text-zinc-500 capitalize">{plan.replace('_',' ')}</p>
+                      <p className="text-3xl font-display font-bold mt-1">{count}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {intel.topFeedConsumers.length > 0 && (
+                <div className="card p-6">
+                  <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><TrendingUp size={18} className="text-amber-400" /> Top Feed Consumers (7 days)</h3>
+                  <div className="space-y-2">
+                    {intel.topFeedConsumers.map((c, i) => {
+                      const f = farmers.find(x => x._id === c.farmerId);
+                      return (
+                        <div key={c.farmerId} className="flex items-center gap-4 p-3 rounded-xl bg-white/3">
+                          <span className="text-zinc-600 font-bold w-5">#{i+1}</span>
+                          <span className="flex-1 font-bold">{f?.name || c.farmerId.slice(-6)}</span>
+                          <span className="text-emerald-400 font-bold">{c.feedKg.toFixed(1)} kg</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="card p-12 text-center"><BarChart3 size={32} className="mx-auto text-zinc-600 mb-3" /><p className="text-zinc-500">{fmLoading ? 'Loading insights...' : 'No intelligence data available'}</p></div>
+          )}
+        </div>
+      )}
 
       {/* ═══ PRICE TRACKING ══════════════════════════════════════════════════ */}
       {tab === 'prices' && (
@@ -797,6 +1295,7 @@ const MarketIntelligence = () => {
         </div>
       )}
     </div>
+    </>
   );
 };
 

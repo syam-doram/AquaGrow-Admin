@@ -8,7 +8,6 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
 import Operations from './pages/Operations';
-import Farmers from './pages/Farmers';
 import ProviderRegistry from './pages/ProviderRegistry';
 import Finance from './pages/Finance';
 import AIControl from './pages/AIControl';
@@ -72,7 +71,6 @@ const App = () => {
         <Route path="/farm-intelligence"  element={<ProtectedRoute><Layout><FarmIntelligence /></Layout></ProtectedRoute>} />
 
         {/* ── Farm Management ───────────────────────────── */}
-        <Route path="/farmers"       element={<ProtectedRoute><Layout><Farmers /></Layout></ProtectedRoute>} />
         <Route path="/providers"     element={<ProtectedRoute><Layout><ProviderRegistry /></Layout></ProtectedRoute>} />
         <Route path="/employees"     element={<ProtectedRoute><Layout><EmployeeManagement /></Layout></ProtectedRoute>} />
         <Route path="/harvests"      element={<ProtectedRoute><Layout><HarvestManagement /></Layout></ProtectedRoute>} />
