@@ -1,118 +1,523 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Package, CheckCircle2, XCircle, Clock, Search, Filter, TrendingUp,
-  DollarSign, Scale, Star, Users, AlertTriangle, Truck, BarChart3,
-  ArrowUpRight, BadgeCheck, RefreshCw, Activity, Award, Fish, Wifi, WifiOff,
-  Leaf, ArrowDownRight, ClipboardList, ChevronRight, Database, Waves,
+  DollarSign, Scale, Users, AlertTriangle, Truck, BarChart3, RefreshCw,
+  Activity, Award, Fish, Wifi, WifiOff, Database, BadgeCheck, ArrowRight,
+  MessageCircle, Send, Gavel, ShieldCheck, Star, Banknote, CreditCard,
+  ChevronRight, CircleDot, CheckCircle, Loader2, Building2, Receipt,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  fetchHarvestRequests, fetchPonds, fetchFarmers, fetchIntelligence,
-  approveHarvestRequest, completeHarvestRequest, updateHarvestRequest,
-  type LiveHarvestRequest, type LivePond, type LiveFarmer, type IntelligenceData,
+  fetchHarvestRequests, fetchPonds, fetchFarmers, updateHarvestRequest,
+  type LiveHarvestRequest, type LivePond, type LiveFarmer,
 } from '../services/aquagrowApi';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-const STATUS_COLORS: Record<string, string> = {
-  pending:   'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  accepted:  'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  rejected:  'bg-red-500/10 text-red-400 border-red-500/20',
-  cancelled: 'bg-zinc-700/10 text-zinc-500 border-zinc-700/20',
+// ─── Commission rate ──────────────────────────────────────────────────────────
+const COMMISSION_PCT = 5; // 5% platform commission
+
+// ─── Full lifecycle stages ────────────────────────────────────────────────────
+export type HarvestStage =
+  | 'pending'
+  | 'rate_negotiation'
+  | 'rate_confirmed'
+  | 'buyer_deal'
+  | 'buyer_confirmed'
+  | 'provider_assigned'
+  | 'quality_check'
+  | 'quality_approved'
+  | 'harvest_started'
+  | 'harvested'
+  | 'delivered'
+  | 'payment_received'
+  | 'payment_released'
+  | 'completed'
+  | 'rejected';
+
+interface StageConfig {
+  label: string;
+  short: string;
+  color: string;
+  icon: React.FC<any>;
+  actor: 'admin' | 'provider' | 'system';
+  description: string;
+}
+
+const STAGES: Record<HarvestStage, StageConfig> = {
+  pending:          { label: 'Harvest Requested',    short: 'Requested',    color: 'text-amber-400  bg-amber-500/10  border-amber-500/20',  icon: Clock,         actor: 'admin',    description: 'Farmer submitted harvest request — await admin review' },
+  rate_negotiation: { label: 'Rate Negotiation',     short: 'Negotiating',  color: 'text-blue-400   bg-blue-500/10   border-blue-500/20',    icon: MessageCircle, actor: 'admin',    description: 'Admin chatting with farmer to finalize rate' },
+  rate_confirmed:   { label: 'Rate Confirmed',       short: 'Rate Set',     color: 'text-cyan-400   bg-cyan-500/10   border-cyan-500/20',    icon: CheckCircle2,  actor: 'admin',    description: 'Rate locked, commission calculated' },
+  buyer_deal:       { label: 'Buyer Deal in Progress',short: 'Buyer Deal',  color: 'text-purple-400 bg-purple-500/10 border-purple-500/20',  icon: Gavel,         actor: 'admin',    description: 'Admin negotiating deal with buyer at confirmed rate' },
+  buyer_confirmed:  { label: 'Buyer Confirmed',      short: 'Buyer Set',    color: 'text-violet-400 bg-violet-500/10 border-violet-500/20',  icon: Building2,     actor: 'admin',    description: 'Buyer has agreed to purchase at confirmed rate' },
+  provider_assigned:{ label: 'Provider Assigned',    short: 'Provider',     color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',  icon: Users,         actor: 'admin',    description: 'Service provider assigned for harvest operations' },
+  quality_check:    { label: 'Quality Check',        short: 'QC',           color: 'text-orange-400 bg-orange-500/10 border-orange-500/20',  icon: Star,          actor: 'provider', description: 'Provider performing on-site quality inspection' },
+  quality_approved: { label: 'Quality Approved',     short: 'QC Passed',    color: 'text-lime-400   bg-lime-500/10   border-lime-500/20',    icon: ShieldCheck,   actor: 'provider', description: 'Provider confirmed quality — harvest cleared to proceed' },
+  harvest_started:  { label: 'Harvest Started',      short: 'In Progress',  color: 'text-sky-400    bg-sky-500/10    border-sky-500/20',     icon: Activity,      actor: 'provider', description: 'Vehicle dispatched, harvest operation underway' },
+  harvested:        { label: 'Harvested',            short: 'Harvested',    color: 'text-teal-400   bg-teal-500/10   border-teal-500/20',    icon: Fish,          actor: 'provider', description: 'Harvest completed and produce collected' },
+  delivered:        { label: 'Delivered to Buyer',   short: 'Delivered',    color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', icon: Truck,        actor: 'admin',    description: 'Produce successfully delivered to buyer' },
+  payment_received: { label: 'Payment Received',     short: 'Paid',         color: 'text-green-400  bg-green-500/10  border-green-500/20',   icon: Banknote,      actor: 'system',   description: 'Buyer payment received in company bank account' },
+  payment_released: { label: 'Payment Released',     short: 'Farmer Paid',  color: 'text-emerald-300 bg-emerald-400/10 border-emerald-400/20', icon: CreditCard,  actor: 'system',   description: 'Net amount (after commission) released to farmer' },
+  completed:        { label: 'Completed',            short: 'Done',         color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', icon: BadgeCheck,   actor: 'system',   description: 'Full harvest lifecycle completed successfully' },
+  rejected:         { label: 'Rejected',             short: 'Rejected',     color: 'text-red-400    bg-red-500/10    border-red-500/20',     icon: XCircle,       actor: 'admin',    description: 'Harvest request rejected' },
 };
 
-const StatusBadge = ({ s }: { s: string }) => (
-  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${STATUS_COLORS[s] ?? 'bg-zinc-700/10 text-zinc-400 border-zinc-700/20'}`}>
-    {s.replace(/_/g, ' ').toUpperCase()}
-  </span>
-);
+const PIPELINE_ORDER: HarvestStage[] = [
+  'pending','rate_negotiation','rate_confirmed','buyer_deal','buyer_confirmed',
+  'provider_assigned','quality_check','quality_approved','harvest_started',
+  'harvested','delivered','payment_received','payment_released','completed',
+];
+
+function stageIndex(s: string): number {
+  return PIPELINE_ORDER.indexOf(s as HarvestStage);
+}
+
+// ─── Chat message type ────────────────────────────────────────────────────────
+interface ChatMsg { from: 'admin' | 'farmer'; text: string; time: string; }
+
+// ─── Enriched harvest ─────────────────────────────────────────────────────────
+interface EnrichedHarvest extends LiveHarvestRequest {
+  _pond?: LivePond;
+  _farmer?: LiveFarmer;
+  _commission?: number;
+  _netFarmer?: number;
+  _total?: number;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const StageBadge = ({ stage }: { stage: string }) => {
+  const cfg = STAGES[stage as HarvestStage];
+  if (!cfg) return <span className="text-[10px] px-2 py-0.5 rounded-full border bg-zinc-700/10 text-zinc-500 border-zinc-700/20 font-bold">{stage.toUpperCase()}</span>;
+  return (
+    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${cfg.color}`}>
+      {cfg.short.toUpperCase()}
+    </span>
+  );
+};
 
 const fmtK = (n: number) =>
-  n >= 100000 ? `₹${(n / 100000).toFixed(2)}L` : n >= 1000 ? `₹${(n / 1000).toFixed(1)}K` : `₹${n.toFixed(0)}`;
+  n >= 100000 ? `₹${(n / 100000).toFixed(2)}L` : n >= 1000 ? `₹${(n / 1000).toFixed(1)}K` : `₹${Math.round(n).toLocaleString('en-IN')}`;
 
-type Tab = 'requests' | 'active' | 'completed' | 'ponds' | 'analytics';
-
-// ─── Approve Modal ────────────────────────────────────────────────────────────
-const ApproveModal = ({
-  harvest, onClose, onApprove,
-}: { harvest: LiveHarvestRequest; onClose: () => void; onApprove: (price: number, finalWeight: number) => void }) => {
-  const [price, setPrice] = useState(harvest.price ?? 450);
-  const [weight, setWeight] = useState(harvest.biomass);
+// ─── Progress Timeline ────────────────────────────────────────────────────────
+const ProgressTimeline = ({ current }: { current: string }) => {
+  const idx = stageIndex(current);
+  const showStages = PIPELINE_ORDER.filter(s => s !== 'rejected');
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-        className="relative w-full max-w-md card p-8 shadow-2xl space-y-5">
-        <div>
-          <h3 className="text-xl font-display font-bold">Approve Harvest</h3>
-          <p className="text-sm text-zinc-400 mt-1">Set final weight & price before approving</p>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Final Weight (kg)</label>
-            <input type="number" value={weight} onChange={e => setWeight(+e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/50" />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Price per kg (₹)</label>
-            <input type="number" value={price} onChange={e => setPrice(+e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/50" />
-          </div>
-          <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
-            <p className="text-xs text-zinc-400">Estimated total</p>
-            <p className="text-xl font-bold text-emerald-400 mt-0.5">₹{(price * weight).toLocaleString('en-IN')}</p>
-          </div>
-        </div>
-        <div className="flex gap-3 pt-2">
-          <button onClick={onClose} className="flex-1 text-sm font-bold py-2.5 px-4 rounded-xl bg-white/5 text-zinc-400 hover:bg-white/10 transition-all">Cancel</button>
-          <button onClick={() => onApprove(price, weight)} className="flex-1 text-sm font-bold py-2.5 px-4 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">
-            <CheckCircle2 size={14} /> Approve
-          </button>
-        </div>
-      </motion.div>
+    <div className="flex items-center gap-0 overflow-x-auto py-3">
+      {showStages.map((stage, i) => {
+        const done    = i < idx;
+        const active  = i === idx;
+        const cfg     = STAGES[stage];
+        return (
+          <React.Fragment key={stage}>
+            <div className="flex flex-col items-center shrink-0">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all ${
+                done   ? 'bg-emerald-500 border-emerald-500 text-white' :
+                active ? 'bg-emerald-600 border-emerald-400 text-white animate-pulse' :
+                         'bg-zinc-900 border-zinc-700 text-zinc-600'
+              }`}>
+                {done ? <CheckCircle size={13} /> : active ? <CircleDot size={13} /> : <span className="text-[8px] font-bold">{i+1}</span>}
+              </div>
+              <p className={`text-[7px] font-bold mt-1 text-center w-12 leading-tight ${done || active ? 'text-zinc-300' : 'text-zinc-700'}`}>
+                {cfg.short}
+              </p>
+            </div>
+            {i < showStages.length - 1 && (
+              <div className={`flex-1 h-0.5 mx-0.5 min-w-3 ${i < idx ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
+            )}
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 };
 
-// ─── Complete Modal ───────────────────────────────────────────────────────────
-const CompleteModal = ({
-  harvest, onClose, onComplete,
-}: { harvest: LiveHarvestRequest; onClose: () => void; onComplete: (finalTotal: number) => void }) => {
-  const defaultTotal = (harvest.price ?? 450) * (harvest.finalWeight ?? harvest.biomass);
-  const [total, setTotal] = useState(defaultTotal);
+// ─── Commission panel ─────────────────────────────────────────────────────────
+const CommissionPanel = ({ h }: { h: EnrichedHarvest }) => {
+  const price  = h.price ?? 0;
+  const weight = h.finalWeight ?? h.biomass;
+  const gross  = price * weight;
+  const comm   = Math.round(gross * COMMISSION_PCT / 100);
+  const net    = gross - comm;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-        className="relative w-full max-w-md card p-8 shadow-2xl space-y-5">
+    <div className="p-4 rounded-2xl bg-white/3 border border-white/5 space-y-2.5">
+      <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5"><Receipt size={12} className="text-emerald-400" /> Payment Breakdown</p>
+      {[
+        { label: 'Weight',           value: `${weight.toLocaleString()} kg`, color: '' },
+        { label: 'Rate /kg',         value: price ? `₹${price}` : '—', color: '' },
+        { label: 'Gross Amount',     value: gross ? fmtK(gross) : '—', color: 'text-white' },
+        { label: `Commission (${COMMISSION_PCT}%)`, value: comm ? fmtK(comm) : '—', color: 'text-red-400' },
+        { label: 'Net to Farmer',    value: net ? fmtK(net) : '—', color: 'text-emerald-400' },
+      ].map(({ label, value, color }) => (
+        <div key={label} className="flex items-center justify-between text-sm">
+          <span className="text-zinc-500">{label}</span>
+          <span className={`font-bold font-mono ${color}`}>{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ─── Chat Panel ──────────────────────────────────────────────────────────────
+const ChatPanel = ({ harvestId, farmerName, messages, onSend }: {
+  harvestId: string; farmerName: string;
+  messages: ChatMsg[]; onSend: (id: string, text: string) => void;
+}) => {
+  const [text, setText] = useState('');
+  const endRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  return (
+    <div className="flex flex-col h-72 rounded-2xl bg-white/3 border border-white/5 overflow-hidden">
+      <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2">
+        <MessageCircle size={14} className="text-blue-400" />
+        <p className="text-sm font-bold">Rate Negotiation — {farmerName}</p>
+        <span className="ml-auto text-[9px] text-zinc-600 font-bold">ADMIN ↔ FARMER</span>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {messages.length === 0 && (
+          <p className="text-center text-xs text-zinc-700 mt-6">Start negotiation by sending the proposed rate to farmer</p>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.from === 'admin' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${
+              m.from === 'admin' ? 'bg-emerald-600 text-white rounded-br-sm' : 'bg-white/8 text-zinc-200 rounded-bl-sm'
+            }`}>
+              <p>{m.text}</p>
+              <p className={`text-[9px] mt-0.5 ${m.from === 'admin' ? 'text-emerald-200' : 'text-zinc-500'}`}>{m.time}</p>
+            </div>
+          </div>
+        ))}
+        <div ref={endRef} />
+      </div>
+      <div className="p-3 border-t border-white/5 flex gap-2">
+        <input value={text} onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && text.trim()) { onSend(harvestId, text.trim()); setText(''); } }}
+          placeholder="Type rate proposal or message..."
+          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/50" />
+        <button onClick={() => { if (text.trim()) { onSend(harvestId, text.trim()); setText(''); } }}
+          className="p-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-500 transition-all">
+          <Send size={14} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  HARVEST DETAIL PANEL
+// ═══════════════════════════════════════════════════════════════════════════════
+const HarvestDetail = ({
+  h, chat, onChat, onAdvance, onReject, advancing,
+}: {
+  h: EnrichedHarvest;
+  chat: ChatMsg[];
+  onChat: (id: string, text: string) => void;
+  onAdvance: (id: string, to: HarvestStage, patch?: any) => Promise<void>;
+  onReject: (id: string) => void;
+  advancing: boolean;
+}) => {
+  const [price, setPrice] = useState(h.price ?? 450);
+  const [weight, setWeight] = useState(h.finalWeight ?? h.biomass);
+  const [buyerName, setBuyerName] = useState('');
+  const [providerName, setProviderName] = useState('');
+  const [vehicleNo, setVehicleNo] = useState('');
+
+  const stage = h.status as HarvestStage;
+  const idx = stageIndex(stage);
+  const gross   = price * weight;
+  const commiAmt = Math.round(gross * COMMISSION_PCT / 100);
+  const netFarmer = gross - commiAmt;
+
+  return (
+    <div className="space-y-5">
+      {/* Timeline */}
+      <div className="card p-5">
+        <p className="text-xs font-bold text-zinc-500 uppercase mb-3">Harvest Pipeline Progress</p>
+        <ProgressTimeline current={stage} />
+      </div>
+
+      {/* Stage info banner */}
+      <div className={`flex items-start gap-3 p-4 rounded-2xl border ${STAGES[stage]?.color ?? 'border-white/10'}`}>
+        {React.createElement(STAGES[stage]?.icon ?? CircleDot, { size: 18, className: 'shrink-0 mt-0.5' })}
         <div>
-          <h3 className="text-xl font-display font-bold">Mark as Completed</h3>
-          <p className="text-sm text-zinc-400 mt-1">Confirm final payment total</p>
+          <p className="font-bold text-sm">{STAGES[stage]?.label ?? stage}</p>
+          <p className="text-xs opacity-70 mt-0.5">{STAGES[stage]?.description}</p>
+          <p className="text-[10px] opacity-50 mt-1">
+            Actor: {STAGES[stage]?.actor?.toUpperCase() ?? '—'}
+          </p>
         </div>
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs font-bold text-zinc-500 uppercase block mb-1.5">Final Total (₹)</label>
-            <input type="number" value={total} onChange={e => setTotal(+e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/50" />
-          </div>
+      </div>
+
+      {/* Commission always visible once price is set */}
+      <CommissionPanel h={{ ...h, price, _pond: h._pond, _farmer: h._farmer, finalWeight: weight } as any} />
+
+      {/* ── Stage-specific actions ── */}
+
+      {/* 1. PENDING → Rate Negotiation */}
+      {stage === 'pending' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><MessageCircle size={15} className="text-blue-400" /> Start Rate Negotiation</h4>
           <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-xl bg-white/3 border border-white/5">
-              <p className="text-[10px] text-zinc-500">Final Weight</p>
-              <p className="font-bold text-sm">{(harvest.finalWeight ?? harvest.biomass).toLocaleString()} kg</p>
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Proposed Rate (₹/kg)</label>
+              <input type="number" value={price} onChange={e => setPrice(+e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/50" />
             </div>
-            <div className="p-3 rounded-xl bg-white/3 border border-white/5">
-              <p className="text-[10px] text-zinc-500">Price /kg</p>
-              <p className="font-bold text-sm">₹{harvest.price ?? '—'}</p>
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Est. Weight (kg)</label>
+              <input type="number" value={weight} onChange={e => setWeight(+e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/50" />
             </div>
           </div>
+          <div className="flex gap-2">
+            <button onClick={() => onAdvance(h._id, 'rate_negotiation', { price, finalWeight: weight, status: 'rate_negotiation' })}
+              disabled={advancing} className="flex-1 text-sm font-bold py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-500 transition-all flex items-center justify-center gap-2">
+              {advancing ? <Loader2 size={14} className="animate-spin" /> : <MessageCircle size={14} />}
+              Start Negotiation
+            </button>
+            <button onClick={() => onReject(h._id)}
+              className="px-4 py-2.5 text-sm font-bold rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all flex items-center gap-1.5">
+              <XCircle size={14} /> Reject
+            </button>
+          </div>
         </div>
-        <div className="flex gap-3 pt-2">
-          <button onClick={onClose} className="flex-1 text-sm font-bold py-2.5 px-4 rounded-xl bg-white/5 text-zinc-400 hover:bg-white/10 transition-all">Cancel</button>
-          <button onClick={() => onComplete(total)} className="flex-1 text-sm font-bold py-2.5 px-4 rounded-xl bg-purple-600 text-white hover:bg-purple-500 transition-all flex items-center justify-center gap-2">
-            <BadgeCheck size={14} /> Complete
+      )}
+
+      {/* 2. RATE NEGOTIATION — chat + confirm */}
+      {stage === 'rate_negotiation' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><MessageCircle size={15} className="text-blue-400" /> Chat with Farmer — Rate Negotiation</h4>
+          <ChatPanel harvestId={h._id} farmerName={h._farmer?.name ?? 'Farmer'} messages={chat} onSend={onChat} />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Final Rate (₹/kg)</label>
+              <input type="number" value={price} onChange={e => setPrice(+e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/50" />
+            </div>
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Final Weight (kg)</label>
+              <input type="number" value={weight} onChange={e => setWeight(+e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/50" />
+            </div>
+          </div>
+          <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-sm">
+            <p className="text-xs text-zinc-400">Total deal value after {COMMISSION_PCT}% commission</p>
+            <p className="text-xl font-bold text-emerald-400 mt-0.5">{fmtK(netFarmer)} <span className="text-xs text-zinc-500 font-normal">to farmer</span></p>
+            <p className="text-xs text-zinc-500 mt-0.5">Commission: {fmtK(commiAmt)} → AquaGrow account</p>
+          </div>
+          <button onClick={() => onAdvance(h._id, 'rate_confirmed', { price, finalWeight: weight, status: 'rate_confirmed' })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-cyan-600 text-white hover:bg-cyan-500 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+            Confirm Rate & Lock Deal
           </button>
         </div>
-      </motion.div>
+      )}
+
+      {/* 3. RATE CONFIRMED → Buyer Deal */}
+      {stage === 'rate_confirmed' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><Gavel size={15} className="text-purple-400" /> Find Buyer at ₹{h.price}/kg</h4>
+          <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/10 text-xs text-purple-300">
+            Rate locked at <span className="font-bold">₹{h.price}/kg</span> · Total deal <span className="font-bold">{fmtK((h.price ?? 0) * (h.finalWeight ?? h.biomass))}</span>
+          </div>
+          <div>
+            <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Buyer Name / Company</label>
+            <input value={buyerName} onChange={e => setBuyerName(e.target.value)}
+              placeholder="e.g. Blue Ocean Traders"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500/50" />
+          </div>
+          <button onClick={() => onAdvance(h._id, 'buyer_deal', { status: 'buyer_deal' })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-purple-600 text-white hover:bg-purple-500 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <Gavel size={14} />}
+            Start Buyer Negotiation
+          </button>
+        </div>
+      )}
+
+      {/* 4. BUYER DEAL → Confirm buyer */}
+      {stage === 'buyer_deal' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><Building2 size={15} className="text-violet-400" /> Confirm Buyer Agreement</h4>
+          <div>
+            <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Buyer Name</label>
+            <input value={buyerName} onChange={e => setBuyerName(e.target.value)}
+              placeholder="Buyer name or company"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-500/50" />
+          </div>
+          <button onClick={() => onAdvance(h._id, 'buyer_confirmed', { status: 'buyer_confirmed' })}
+            disabled={!buyerName.trim() || advancing}
+            className="w-full text-sm font-bold py-2.5 rounded-xl bg-violet-600 text-white hover:bg-violet-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+            Confirm Buyer Deal
+          </button>
+        </div>
+      )}
+
+      {/* 5. BUYER CONFIRMED → Assign Provider */}
+      {stage === 'buyer_confirmed' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><Users size={15} className="text-indigo-400" /> Assign Service Provider</h4>
+          <div>
+            <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Provider Name</label>
+            <input value={providerName} onChange={e => setProviderName(e.target.value)}
+              placeholder="e.g. AquaHarvest Services"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50" />
+          </div>
+          <button onClick={() => onAdvance(h._id, 'provider_assigned', { status: 'provider_assigned' })}
+            disabled={!providerName.trim() || advancing}
+            className="w-full text-sm font-bold py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <Users size={14} />}
+            Assign Provider
+          </button>
+        </div>
+      )}
+
+      {/* 6. PROVIDER ASSIGNED → Quality Check starts */}
+      {stage === 'provider_assigned' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><Star size={15} className="text-orange-400" /> Initiate Quality Check</h4>
+          <p className="text-sm text-zinc-400">Provider will visit the pond to inspect shrimp quality, water parameters, and biomass estimate.</p>
+          <button onClick={() => onAdvance(h._id, 'quality_check', { status: 'quality_check' })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-orange-600 text-white hover:bg-orange-500 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <Star size={14} />}
+            Start Quality Check
+          </button>
+        </div>
+      )}
+
+      {/* 7. QUALITY CHECK → Provider approves */}
+      {stage === 'quality_check' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><ShieldCheck size={15} className="text-lime-400" /> Provider Quality Approval</h4>
+          <div className="space-y-2">
+            {['Water quality parameters verified', 'Shrimp health condition checked', 'Biomass estimate validated', 'No disease indicators found'].map(item => (
+              <div key={item} className="flex items-center gap-2 p-2.5 rounded-xl bg-white/3 border border-white/5">
+                <CheckCircle2 size={13} className="text-lime-400 shrink-0" />
+                <span className="text-xs text-zinc-300">{item}</span>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => onAdvance(h._id, 'quality_approved', { status: 'quality_approved' })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-lime-700 text-white hover:bg-lime-600 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+            Approve Quality — Clear for Harvest
+          </button>
+        </div>
+      )}
+
+      {/* 8. QUALITY APPROVED → Start harvest */}
+      {stage === 'quality_approved' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><Truck size={15} className="text-sky-400" /> Dispatch Harvest Vehicle</h4>
+          <div>
+            <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Vehicle Number</label>
+            <input value={vehicleNo} onChange={e => setVehicleNo(e.target.value)}
+              placeholder="e.g. TN-01-AB-1234"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500/50" />
+          </div>
+          <button onClick={() => onAdvance(h._id, 'harvest_started', { status: 'harvest_started' })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-sky-600 text-white hover:bg-sky-500 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />}
+            Dispatch & Start Harvest
+          </button>
+        </div>
+      )}
+
+      {/* 9. HARVEST STARTED → Mark harvested */}
+      {stage === 'harvest_started' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><Fish size={15} className="text-teal-400" /> Confirm Harvest Complete</h4>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Actual Weight (kg)</label>
+              <input type="number" value={weight} onChange={e => setWeight(+e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500/50" />
+            </div>
+            <div className="p-3 rounded-xl bg-teal-500/5 border border-teal-500/10 flex flex-col justify-center">
+              <p className="text-[10px] text-zinc-500">Final Amount</p>
+              <p className="font-bold text-teal-400 font-mono">{fmtK(price * weight)}</p>
+            </div>
+          </div>
+          <button onClick={() => onAdvance(h._id, 'harvested', { status: 'harvested', finalWeight: weight })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-teal-700 text-white hover:bg-teal-600 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <Fish size={14} />}
+            Mark as Harvested
+          </button>
+        </div>
+      )}
+
+      {/* 10. HARVESTED → Delivered */}
+      {stage === 'harvested' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><Truck size={15} className="text-emerald-400" /> Confirm Delivery to Buyer</h4>
+          <button onClick={() => onAdvance(h._id, 'delivered', { status: 'delivered' })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />}
+            Confirm Delivered to Buyer
+          </button>
+        </div>
+      )}
+
+      {/* 11. DELIVERED → Payment received from buyer */}
+      {stage === 'delivered' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><Banknote size={15} className="text-green-400" /> Confirm Buyer Payment Received</h4>
+          <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/10 space-y-2">
+            <div className="flex justify-between text-sm"><span className="text-zinc-400">Gross Amount</span><span className="font-bold">{fmtK((h.price ?? 0) * (h.finalWeight ?? h.biomass))}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-zinc-400">Commission ({COMMISSION_PCT}%)</span><span className="font-bold text-red-400">- {fmtK(Math.round((h.price ?? 0) * (h.finalWeight ?? h.biomass) * COMMISSION_PCT / 100))}</span></div>
+            <div className="flex justify-between text-sm border-t border-white/5 pt-2"><span className="text-zinc-400">To Farmer</span><span className="font-bold text-green-400">{fmtK(Math.round((h.price ?? 0) * (h.finalWeight ?? h.biomass) * (100 - COMMISSION_PCT) / 100))}</span></div>
+          </div>
+          <button onClick={() => onAdvance(h._id, 'payment_received', { status: 'payment_received', finalTotal: (h.price ?? 0) * (h.finalWeight ?? h.biomass) })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-green-700 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <Banknote size={14} />}
+            Mark Payment Received from Buyer
+          </button>
+        </div>
+      )}
+
+      {/* 12. PAYMENT RECEIVED → Release to farmer */}
+      {stage === 'payment_received' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><CreditCard size={15} className="text-emerald-300" /> Release Payment to Farmer</h4>
+          <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
+            <p className="text-xs text-zinc-400 mb-1">Net amount to release (after {COMMISSION_PCT}% commission deducted)</p>
+            <p className="text-2xl font-bold text-emerald-400">{fmtK(Math.round((h.finalTotal ?? (h.price ?? 0) * (h.finalWeight ?? h.biomass)) * (100 - COMMISSION_PCT) / 100))}</p>
+            <p className="text-xs text-zinc-500 mt-1">→ Farmer bank account</p>
+          </div>
+          <button onClick={() => onAdvance(h._id, 'payment_released', { status: 'payment_released' })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
+            Release Net Payment to Farmer
+          </button>
+        </div>
+      )}
+
+      {/* 13. PAYMENT RELEASED → Complete */}
+      {stage === 'payment_released' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><BadgeCheck size={15} className="text-emerald-400" /> Mark Harvest Complete</h4>
+          <button onClick={() => onAdvance(h._id, 'completed', { status: 'completed' })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <BadgeCheck size={14} />}
+            Complete Harvest Lifecycle ✓
+          </button>
+        </div>
+      )}
+
+      {/* COMPLETED */}
+      {stage === 'completed' && (
+        <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 text-center">
+          <BadgeCheck size={36} className="mx-auto text-emerald-400 mb-2" />
+          <p className="font-bold text-emerald-400 text-lg">Harvest Lifecycle Complete</p>
+          <p className="text-xs text-zinc-400 mt-1">All stages passed. Farmer paid. Commission settled.</p>
+        </div>
+      )}
+
+      {/* REJECTED */}
+      {stage === 'rejected' && (
+        <div className="p-5 rounded-2xl bg-red-500/5 border border-red-500/20 text-center">
+          <XCircle size={36} className="mx-auto text-red-400 mb-2" />
+          <p className="font-bold text-red-400">Harvest Rejected</p>
+        </div>
+      )}
     </div>
   );
 };
@@ -121,338 +526,225 @@ const CompleteModal = ({
 //  MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 const HarvestManagement = () => {
-  const [tab, setTab] = useState<Tab>('requests');
   const [harvests, setHarvests] = useState<LiveHarvestRequest[]>([]);
-  const [ponds, setPonds] = useState<LivePond[]>([]);
-  const [farmers, setFarmers] = useState<LiveFarmer[]>([]);
-  const [intel, setIntel] = useState<IntelligenceData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [ponds, setPonds]       = useState<LivePond[]>([]);
+  const [farmers, setFarmers]   = useState<LiveFarmer[]>([]);
+  const [loading, setLoading]   = useState(true);
   const [apiStatus, setApiStatus] = useState<'online' | 'offline' | 'loading'>('loading');
-  const [lastSync, setLastSync] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [approveTarget, setApproveTarget] = useState<LiveHarvestRequest | null>(null);
-  const [completeTarget, setCompleteTarget] = useState<LiveHarvestRequest | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [lastSync, setLastSync]   = useState<string | null>(null);
+  const [search, setSearch]     = useState('');
+  const [filterStage, setFilterStage] = useState<'all' | HarvestStage>('all');
+  const [selected, setSelected] = useState<string | null>(null);    // harvest _id
+  const [advancing, setAdvancing] = useState(false);
+  // Chat messages keyed by harvestId
+  const [chats, setChats] = useState<Record<string, ChatMsg[]>>({});
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setApiStatus('loading');
+    setLoading(true); setApiStatus('loading');
     try {
-      const [h, p, f, i] = await Promise.allSettled([
-        fetchHarvestRequests(),
-        fetchPonds(),
-        fetchFarmers(),
-        fetchIntelligence(),
+      const [h, p, f] = await Promise.allSettled([
+        fetchHarvestRequests(), fetchPonds(), fetchFarmers(),
       ]);
       if (h.status === 'fulfilled') setHarvests(h.value);
       if (p.status === 'fulfilled') setPonds(p.value);
       if (f.status === 'fulfilled') setFarmers(f.value);
-      if (i.status === 'fulfilled') setIntel(i.value);
       setApiStatus('online');
       setLastSync(new Date().toLocaleTimeString());
-    } catch {
-      setApiStatus('offline');
-    } finally {
-      setLoading(false);
-    }
+    } catch { setApiStatus('offline'); }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  // ── Enrich harvests with farmer/pond info ────────────────────────────────────
-  const enriched = useMemo(() => harvests.map(h => {
-    const pond = ponds.find(p => p._id === h.pondId);
+  // Enrich harvests
+  const enriched: EnrichedHarvest[] = useMemo(() => harvests.map(h => {
+    const pond   = ponds.find(p => p._id === h.pondId);
     const farmer = farmers.find(f => f._id === h.userId);
-    return { ...h, _pond: pond, _farmer: farmer };
+    const gross  = (h.price ?? 0) * (h.finalWeight ?? h.biomass);
+    const comm   = Math.round(gross * COMMISSION_PCT / 100);
+    return { ...h, _pond: pond, _farmer: farmer, _total: gross, _commission: comm, _netFarmer: gross - comm };
   }), [harvests, ponds, farmers]);
 
-  // ── Stats ────────────────────────────────────────────────────────────────────
-  const stats = useMemo(() => ({
-    pending:   harvests.filter(h => h.status === 'pending').length,
-    accepted:  harvests.filter(h => h.status === 'accepted').length,
-    completed: harvests.filter(h => h.status === 'completed').length,
-    rejected:  harvests.filter(h => h.status === 'rejected').length,
-    totalBiomass: harvests.reduce((s, h) => s + h.biomass, 0),
-    completedRevenue: harvests.filter(h => h.status === 'completed').reduce((s, h) => s + (h.finalTotal ?? 0), 0),
-    harvestReady: ponds.filter(p => p.alerts.includes('HARVEST_READY')).length,
-  }), [harvests, ponds]);
+  // Stats
+  const stats = useMemo(() => {
+    const byStage = (s: string) => enriched.filter(h => h.status === s).length;
+    return {
+      pending:   byStage('pending'),
+      active:    enriched.filter(h => !['pending','completed','rejected'].includes(h.status)).length,
+      completed: byStage('completed'),
+      totalRevenue: enriched.filter(h => h.status === 'completed').reduce((s, h) => s + (h.finalTotal ?? 0), 0),
+      commission: enriched.filter(h => h._commission).reduce((s, h) => s + (h._commission ?? 0), 0),
+    };
+  }, [enriched]);
 
-  // ── Filtered list ────────────────────────────────────────────────────────────
+  // Filtered
   const filtered = useMemo(() => enriched.filter(h => {
-    const farmerName = h._farmer?.name ?? '';
-    const pondName   = h._pond?.name   ?? '';
-    const ms = [farmerName, pondName, h._id].some(s => s.toLowerCase().includes(search.toLowerCase()));
-    const mf = filterStatus === 'all' || h.status === filterStatus;
+    const ms = [h._farmer?.name, h._pond?.name, h._id.slice(-6)].some(s =>
+      s?.toLowerCase().includes(search.toLowerCase())
+    );
+    const mf = filterStage === 'all' || h.status === filterStage;
     return ms && mf;
-  }), [enriched, search, filterStatus]);
+  }), [enriched, search, filterStage]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────────
-  const handleApprove = async (price: number, finalWeight: number) => {
-    if (!approveTarget) return;
-    setActionLoading(approveTarget._id);
+  const selectedHarvest = useMemo(() => enriched.find(h => h._id === selected), [enriched, selected]);
+
+  // Advance stage
+  const handleAdvance = useCallback(async (id: string, to: HarvestStage, patch?: any) => {
+    setAdvancing(true);
     try {
-      await approveHarvestRequest(approveTarget._id, price, finalWeight);
-      setApproveTarget(null);
+      await updateHarvestRequest(id, { ...patch, status: to });
       await load();
-    } catch (e: any) {
-      alert('Failed to approve: ' + e.message);
-    } finally { setActionLoading(null); }
-  };
+    } catch (e: any) { alert('Error: ' + e.message); }
+    finally { setAdvancing(false); }
+  }, [load]);
 
-  const handleComplete = async (finalTotal: number) => {
-    if (!completeTarget) return;
-    setActionLoading(completeTarget._id);
-    try {
-      await completeHarvestRequest(completeTarget._id, finalTotal);
-      setCompleteTarget(null);
-      await load();
-    } catch (e: any) {
-      alert('Failed to complete: ' + e.message);
-    } finally { setActionLoading(null); }
-  };
-
-  const handleReject = async (id: string) => {
+  const handleReject = useCallback(async (id: string) => {
     if (!window.confirm('Reject this harvest request?')) return;
-    setActionLoading(id);
-    try {
-      await updateHarvestRequest(id, { status: 'rejected' });
-      await load();
-    } catch (e: any) {
-      alert('Failed to reject: ' + e.message);
-    } finally { setActionLoading(null); }
-  };
+    await handleAdvance(id, 'rejected');
+    setSelected(null);
+  }, [handleAdvance]);
 
-  const TABS: { id: Tab; label: string; icon: React.FC<any>; badge?: number }[] = [
-    { id: 'requests',  label: 'All Requests',   icon: ClipboardList, badge: stats.pending },
-    { id: 'active',    label: 'Active / Accepted', icon: Activity,   badge: stats.accepted },
-    { id: 'completed', label: 'Completed',       icon: BadgeCheck,   badge: stats.completed },
-    { id: 'ponds',     label: 'Harvest-Ready Ponds', icon: Fish,     badge: stats.harvestReady },
-    { id: 'analytics', label: 'Analytics',       icon: BarChart3 },
-  ];
+  // Chat
+  const handleChat = useCallback((id: string, text: string) => {
+    const msg: ChatMsg = { from: 'admin', text, time: new Date().toLocaleTimeString() };
+    setChats(prev => ({ ...prev, [id]: [...(prev[id] ?? []), msg] }));
+  }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-display font-bold tracking-tight mb-1">Harvest Management</h1>
-          <p className="text-zinc-400 text-sm">Live harvest requests from AquaGrow MongoDB</p>
+          <p className="text-zinc-400 text-sm">Full lifecycle — Request → Rate → Buyer → Provider → Quality → Harvest → Payment</p>
         </div>
         <div className="flex items-center gap-3">
           <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold ${
-            apiStatus === 'online'  ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' :
-            apiStatus === 'offline' ? 'bg-red-500/5 border-red-500/20 text-red-400' :
-                                      'bg-zinc-500/5 border-zinc-500/20 text-zinc-500'
+            apiStatus === 'online' ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' :
+            apiStatus === 'offline' ? 'bg-red-500/5 border-red-500/20 text-red-400' : 'bg-zinc-500/5 border-zinc-500/20 text-zinc-500'
           }`}>
-            {apiStatus === 'online' ? <Wifi size={12} /> : apiStatus === 'offline' ? <WifiOff size={12} /> : <RefreshCw size={12} className="animate-spin" />}
+            {apiStatus === 'online' ? <Wifi size={12}/> : apiStatus==='offline' ? <WifiOff size={12}/> : <RefreshCw size={12} className="animate-spin"/>}
             {apiStatus === 'online' ? 'DB Live' : apiStatus === 'offline' ? 'DB Offline' : 'Syncing...'}
           </div>
           {lastSync && <span className="text-[10px] text-zinc-600">Synced {lastSync}</span>}
           <button onClick={load} disabled={loading} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10 transition-all">
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''}/> Refresh
           </button>
         </div>
       </div>
 
       {/* KPI Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: 'Pending',       value: stats.pending,    color: 'text-amber-400',   icon: Clock },
-          { label: 'Accepted',      value: stats.accepted,   color: 'text-blue-400',    icon: CheckCircle2 },
-          { label: 'Completed',     value: stats.completed,  color: 'text-emerald-400', icon: BadgeCheck },
-          { label: 'Rejected',      value: stats.rejected,   color: 'text-red-400',     icon: XCircle },
-          { label: 'Total Biomass', value: `${stats.totalBiomass.toLocaleString()} kg`, color: 'text-cyan-400', icon: Scale },
-          { label: 'Revenue',       value: fmtK(stats.completedRevenue), color: 'text-emerald-400', icon: DollarSign },
-          { label: 'Ready Ponds',   value: stats.harvestReady, color: stats.harvestReady > 0 ? 'text-amber-400' : 'text-zinc-600', icon: Fish },
+          { label: 'Pending Review', value: stats.pending,    color: 'text-amber-400',   icon: Clock },
+          { label: 'Active',         value: stats.active,     color: 'text-blue-400',    icon: Activity },
+          { label: 'Completed',      value: stats.completed,  color: 'text-emerald-400', icon: BadgeCheck },
+          { label: 'Total Revenue',  value: fmtK(stats.totalRevenue), color: 'text-emerald-400', icon: DollarSign },
+          { label: `Commission (${COMMISSION_PCT}%)`, value: fmtK(stats.commission), color: 'text-purple-400', icon: Receipt },
         ].map(({ label, value, color, icon: Icon }) => (
-          <div key={label} className="card p-4 text-center">
-            <Icon size={16} className={`mx-auto mb-1.5 ${color}`} />
-            <p className="text-[9px] text-zinc-500 uppercase font-bold mb-0.5">{label}</p>
-            <p className={`text-lg font-display font-bold ${color}`}>{value}</p>
+          <div key={label} className="card p-4 flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-white/5`}>
+              <Icon size={18} className={color} />
+            </div>
+            <div>
+              <p className="text-[9px] text-zinc-500 uppercase font-bold">{label}</p>
+              <p className={`text-lg font-display font-bold ${color}`}>{value}</p>
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1.5 bg-white/3 rounded-2xl border border-white/5 overflow-x-auto">
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs whitespace-nowrap transition-all ${tab === t.id ? 'bg-emerald-600 text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}>
-            <t.icon size={13} />{t.label}
-            {t.badge !== undefined && t.badge > 0 && (
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${tab === t.id ? 'bg-white/20' : 'bg-red-500/80 text-white'}`}>{t.badge}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* ═══ ALL REQUESTS ══════════════════════════════════════════════════════ */}
-      {(tab === 'requests' || tab === 'active' || tab === 'completed') && (
-        <div className="space-y-4">
+      <div className="flex gap-5">
+        {/* Left: Harvest list */}
+        <div className="flex-1 min-w-0 space-y-4">
           {/* Filters */}
           <div className="flex flex-wrap gap-3">
-            <div className="relative flex-1 min-w-48">
-              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <div className="relative flex-1 min-w-44">
+              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500"/>
               <input className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/50"
-                placeholder="Search farmer, pond..." value={search} onChange={e => setSearch(e.target.value)} />
+                placeholder="Search farmer, pond..." value={search} onChange={e => setSearch(e.target.value)}/>
             </div>
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
-              <Filter size={13} className="text-zinc-500" />
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-transparent outline-none text-sm">
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="accepted">Accepted</option>
-                <option value="completed">Completed</option>
+              <Filter size={13} className="text-zinc-500"/>
+              <select value={filterStage} onChange={e => setFilterStage(e.target.value as any)} className="bg-transparent outline-none text-sm">
+                <option value="all">All Stages</option>
+                {PIPELINE_ORDER.map(s => <option key={s} value={s}>{STAGES[s].short}</option>)}
                 <option value="rejected">Rejected</option>
               </select>
             </div>
-            <span className="flex items-center text-xs text-zinc-500 px-1">{filtered.length} records</span>
           </div>
 
+          {/* Pipeline kanban (compact) */}
+          <div className="card p-4">
+            <p className="text-xs font-bold text-zinc-500 uppercase mb-3">Pipeline Overview</p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {PIPELINE_ORDER.map(s => {
+                const count = enriched.filter(h => h.status === s).length;
+                if (count === 0) return null;
+                const cfg = STAGES[s];
+                const [textC] = cfg.color.split(' ');
+                return (
+                  <button key={s} onClick={() => setFilterStage(filterStage === s ? 'all' : s)}
+                    className={`flex flex-col items-center shrink-0 px-3 py-2.5 rounded-xl border transition-all ${filterStage === s ? 'bg-white/10 border-white/20' : 'bg-white/3 border-white/5 hover:border-white/15'}`}>
+                    <p className={`text-xl font-bold ${textC}`}>{count}</p>
+                    <p className="text-[9px] text-zinc-500 font-bold mt-0.5">{cfg.short}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Harvest cards */}
           {loading ? (
             <div className="card p-12 text-center animate-pulse">
-              <Database size={28} className="mx-auto text-zinc-700 mb-3" />
+              <Database size={28} className="mx-auto text-zinc-700 mb-3"/>
               <p className="text-zinc-600">Loading from MongoDB...</p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="card p-12 text-center">
-              <Package size={32} className="mx-auto text-zinc-600 mb-3" />
+              <Package size={32} className="mx-auto text-zinc-600 mb-3"/>
               <p className="text-zinc-500">{harvests.length === 0 ? 'No harvest requests in database' : 'No matches found'}</p>
             </div>
           ) : (
-            <div className="card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-white/5 bg-white/3">
-                      {['ID', 'Farmer', 'Pond', 'Biomass', 'Avg Wt', 'Price /kg', 'Total', 'Status', 'Date', 'Actions'].map(h => (
-                        <th key={h} className="px-5 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {filtered
-                      .filter(h =>
-                        tab === 'requests'  ? true :
-                        tab === 'active'    ? h.status === 'accepted' :
-                        tab === 'completed' ? h.status === 'completed' : true
-                      )
-                      .map((h, i) => (
-                      <motion.tr key={h._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
-                        className="hover:bg-white/3 transition-colors">
-                        <td className="px-5 py-4">
-                          <p className="font-mono text-xs text-emerald-400/70 bg-emerald-400/5 px-2 py-0.5 rounded w-fit">{h._id.slice(-8)}</p>
-                        </td>
-                        <td className="px-5 py-4">
-                          <div>
-                            <p className="font-bold text-sm">{h._farmer?.name ?? `User…${h.userId.slice(-4)}`}</p>
-                            <p className="text-[10px] text-zinc-500">{h._farmer?.phoneNumber ?? '—'}</p>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <div>
-                            <p className="text-sm text-zinc-300">{h._pond?.name ?? `Pond…${h.pondId.slice(-4)}`}</p>
-                            {h._pond && <p className="text-[10px] text-zinc-500">{h._pond.species ?? 'Vannamei'} · DOC {h._pond.doc}</p>}
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 font-mono font-bold">{h.biomass.toLocaleString()} kg</td>
-                        <td className="px-5 py-4 text-sm">{h.avgWeight}g</td>
-                        <td className="px-5 py-4">
-                          {h.price ? <span className="text-emerald-400 font-bold font-mono">₹{h.price}</span> : <span className="text-zinc-600">—</span>}
-                        </td>
-                        <td className="px-5 py-4">
-                          {h.finalTotal ? <span className="text-emerald-400 font-bold font-mono">{fmtK(h.finalTotal)}</span> :
-                           h.price ? <span className="text-zinc-400 font-mono text-sm">{fmtK(h.price * h.biomass)}</span> :
-                           <span className="text-zinc-600">—</span>}
-                        </td>
-                        <td className="px-5 py-4"><StatusBadge s={h.status} /></td>
-                        <td className="px-5 py-4 text-xs text-zinc-500">{new Date(h.createdAt).toLocaleDateString('en-IN')}</td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-1.5">
-                            {h.status === 'pending' && (
-                              <>
-                                <button onClick={() => setApproveTarget(h)}
-                                  disabled={actionLoading === h._id}
-                                  className="p-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-lg transition-all" title="Approve">
-                                  <CheckCircle2 size={14} />
-                                </button>
-                                <button onClick={() => handleReject(h._id)}
-                                  disabled={actionLoading === h._id}
-                                  className="p-1.5 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition-all" title="Reject">
-                                  <XCircle size={14} />
-                                </button>
-                              </>
-                            )}
-                            {h.status === 'accepted' && (
-                              <button onClick={() => setCompleteTarget(h)}
-                                disabled={actionLoading === h._id}
-                                className="text-xs font-bold px-2.5 py-1.5 bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white rounded-lg transition-all">
-                                {actionLoading === h._id ? '...' : 'Complete'}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ═══ HARVEST-READY PONDS ═══════════════════════════════════════════════ */}
-      {tab === 'ponds' && (
-        <div className="space-y-5">
-          {/* Alert banner */}
-          {stats.harvestReady > 0 && (
-            <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm">
-              <AlertTriangle size={16} className="shrink-0" />
-              <div>
-                <p className="font-bold">{stats.harvestReady} pond{stats.harvestReady > 1 ? 's' : ''} ready for harvest</p>
-                <p className="text-xs opacity-70 mt-0.5">These ponds have reached harvest-ready stage — farmer may have already submitted a request above.</p>
-              </div>
-            </div>
-          )}
-
-          {ponds.filter(p => p.alerts.includes('HARVEST_READY') || p.stage === 'Harvest Ready').length === 0 ? (
-            <div className="card p-12 text-center">
-              <Fish size={32} className="mx-auto text-zinc-600 mb-3" />
-              <p className="text-zinc-500">No ponds currently at harvest-ready stage</p>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {ponds.filter(p => p.alerts.includes('HARVEST_READY') || p.stage === 'Harvest Ready').map((pond, i) => {
-                const hasRequest = harvests.some(h => h.pondId === pond._id && ['pending','accepted'].includes(h.status));
+            <div className="space-y-3">
+              {filtered.map((h, i) => {
+                const isSelected = selected === h._id;
+                const idx = stageIndex(h.status);
+                const progress = Math.round((idx / (PIPELINE_ORDER.length - 1)) * 100);
                 return (
-                  <motion.div key={pond._id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                    className="card p-5 border border-amber-500/20">
+                  <motion.div key={h._id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                    onClick={() => setSelected(isSelected ? null : h._id)}
+                    className={`card p-5 cursor-pointer hover:border-white/20 transition-all ${isSelected ? 'border-emerald-500/40 bg-emerald-500/3' : ''}`}>
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <p className="font-bold">{pond.name}</p>
-                        <p className="text-xs text-zinc-500">{pond.farmer?.name ?? '—'} · {pond.species ?? 'Vannamei'}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-bold">{h._farmer?.name ?? `User…${h.userId.slice(-6)}`}</p>
+                          <StageBadge stage={h.status} />
+                        </div>
+                        <p className="text-xs text-zinc-500">{h._pond?.name ?? `Pond…${h.pondId.slice(-6)}`} · {h.biomass.toLocaleString()} kg · Avg {h.avgWeight}g</p>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-400">HARVEST READY</span>
-                        <span className="text-[10px] text-zinc-500">DOC {pond.doc}</span>
+                      <div className="text-right">
+                        {h.price && <p className="text-emerald-400 font-bold font-mono">₹{h.price}/kg</p>}
+                        <p className="text-[10px] text-zinc-500 mt-0.5">{new Date(h.createdAt).toLocaleDateString('en-IN')}</p>
                       </div>
                     </div>
-                    {pond.lastWaterLog && (
-                      <div className="grid grid-cols-3 gap-2 mb-3 p-2.5 rounded-xl bg-white/3 border border-white/5 text-center">
-                        <div><p className="text-[10px] text-zinc-500">pH</p><p className="text-sm font-bold">{pond.lastWaterLog.ph?.toFixed(1) ?? '—'}</p></div>
-                        <div><p className="text-[10px] text-zinc-500">DO</p><p className="text-sm font-bold">{pond.lastWaterLog.do?.toFixed(1) ?? '—'}</p></div>
-                        <div><p className="text-[10px] text-zinc-500">Temp</p><p className="text-sm font-bold">{pond.lastWaterLog.temp?.toFixed(1) ?? '—'}°</p></div>
+                    {/* Progress bar */}
+                    {h.status !== 'rejected' && (
+                      <div>
+                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.6 }}
+                            className="h-full bg-emerald-500 rounded-full" />
+                        </div>
+                        <p className="text-[9px] text-zinc-600 mt-1">Stage {idx + 1} of {PIPELINE_ORDER.length} · {progress}% complete</p>
                       </div>
                     )}
-                    <div className="flex items-center justify-between text-xs text-zinc-500">
-                      <span>Feed 7d: <b className="text-white">{pond.feedLast7Days.toFixed(1)} kg</b></span>
-                      {pond.size && <span>Size: <b className="text-white">{pond.size} ac</b></span>}
-                    </div>
-                    {hasRequest && (
-                      <div className="mt-3 px-2.5 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-400 font-bold flex items-center gap-1">
-                        <ClipboardList size={10} /> Harvest request submitted
+                    {/* Commission preview */}
+                    {h.price && h.status !== 'pending' && (
+                      <div className="mt-3 flex gap-3 text-[10px]">
+                        <span className="text-zinc-500">Gross: <span className="text-white font-bold">{fmtK((h.price) * (h.finalWeight ?? h.biomass))}</span></span>
+                        <span className="text-zinc-500">Commission: <span className="text-purple-400 font-bold">{fmtK(h._commission ?? 0)}</span></span>
+                        <span className="text-zinc-500">Farmer: <span className="text-emerald-400 font-bold">{fmtK(h._netFarmer ?? 0)}</span></span>
                       </div>
                     )}
                   </motion.div>
@@ -461,146 +753,42 @@ const HarvestManagement = () => {
             </div>
           )}
         </div>
-      )}
 
-      {/* ═══ ANALYTICS ════════════════════════════════════════════════════════ */}
-      {tab === 'analytics' && (
-        <div className="space-y-6">
-          {/* Summary from intelligence */}
-          {intel && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="card p-5">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-3"><DollarSign size={18} /></div>
-                <p className="text-[10px] text-zinc-500 uppercase font-bold">Total Revenue</p>
-                <p className="text-2xl font-display font-bold text-emerald-400 mt-1">{fmtK(intel.summary.totalRevenue)}</p>
-              </div>
-              <div className="card p-5">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center mb-3"><Scale size={18} /></div>
-                <p className="text-[10px] text-zinc-500 uppercase font-bold">Biomass Harvested</p>
-                <p className="text-2xl font-display font-bold text-blue-400 mt-1">{intel.summary.totalHarvestBiomassKg.toFixed(0)} kg</p>
-              </div>
-              <div className="card p-5">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-3"><TrendingUp size={18} /></div>
-                <p className="text-[10px] text-zinc-500 uppercase font-bold">Avg ROI</p>
-                <p className="text-2xl font-display font-bold text-purple-400 mt-1">{intel.summary.avgROI}%</p>
-              </div>
-              <div className="card p-5">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-3"><Fish size={18} /></div>
-                <p className="text-[10px] text-zinc-500 uppercase font-bold">Harvest Ready</p>
-                <p className="text-2xl font-display font-bold text-amber-400 mt-1">{intel.summary.harvestReadyCount}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Live stats breakdown */}
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Status breakdown */}
-            <div className="card p-6">
-              <h3 className="font-bold text-lg mb-5 flex items-center gap-2"><BarChart3 size={18} className="text-emerald-400" /> Status Breakdown</h3>
-              <div className="space-y-4">
-                {[
-                  { label: 'Pending Review',  value: stats.pending,   total: harvests.length, color: 'bg-amber-500' },
-                  { label: 'Accepted',         value: stats.accepted,  total: harvests.length, color: 'bg-blue-500' },
-                  { label: 'Completed',        value: stats.completed, total: harvests.length, color: 'bg-emerald-500' },
-                  { label: 'Rejected',         value: stats.rejected,  total: harvests.length, color: 'bg-red-500' },
-                ].map(({ label, value, total, color }) => {
-                  const pct = total ? Math.round((value / total) * 100) : 0;
-                  return (
-                    <div key={label}>
-                      <div className="flex items-center justify-between text-sm mb-1.5">
-                        <span className="text-zinc-300">{label}</span>
-                        <span className="text-zinc-500">{value} ({pct}%)</span>
-                      </div>
-                      <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8 }}
-                          className={`h-full ${color} rounded-full`} />
-                      </div>
+        {/* Right: Detail panel */}
+        <AnimatePresence>
+          {selectedHarvest && (
+            <motion.div key={selectedHarvest._id}
+              initial={{ opacity: 0, x: 20, width: 0 }} animate={{ opacity: 1, x: 0, width: '400px' }}
+              exit={{ opacity: 0, x: 20, width: 0 }}
+              className="w-[400px] shrink-0 overflow-y-auto max-h-[calc(100vh-160px)] sticky top-20">
+              <div className="space-y-3">
+                {/* Detail header */}
+                <div className="card p-5">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-bold text-lg">{selectedHarvest._farmer?.name ?? 'Farmer'}</p>
+                      <p className="text-xs text-zinc-500 mt-0.5">{selectedHarvest._farmer?.phoneNumber} · {selectedHarvest._pond?.name ?? `Pond…${selectedHarvest.pondId.slice(-6)}`}</p>
+                      <p className="text-xs text-zinc-500">{selectedHarvest.biomass.toLocaleString()} kg estimated · Avg {selectedHarvest.avgWeight}g/shrimp</p>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Recent completed */}
-            <div className="card p-6">
-              <h3 className="font-bold text-lg mb-5 flex items-center gap-2"><BadgeCheck size={18} className="text-emerald-400" /> Recent Completed</h3>
-              {enriched.filter(h => h.status === 'completed').slice(0, 6).length === 0 ? (
-                <div className="text-center py-8 text-zinc-600 text-sm">No completed harvests yet</div>
-              ) : (
-                <div className="space-y-3">
-                  {enriched.filter(h => h.status === 'completed').slice(0, 6).map(h => (
-                    <div key={h._id} className="flex items-center justify-between p-3 rounded-xl bg-white/3 border border-white/5">
-                      <div>
-                        <p className="text-sm font-bold">{h._farmer?.name ?? `User…${h.userId.slice(-4)}`}</p>
-                        <p className="text-[10px] text-zinc-500">{h._pond?.name ?? `Pond…${h.pondId.slice(-4)}`} · {h.biomass} kg</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-emerald-400 font-bold text-sm">{h.finalTotal ? fmtK(h.finalTotal) : '—'}</p>
-                        <p className="text-[10px] text-zinc-500">₹{h.price ?? '—'}/kg</p>
-                      </div>
-                    </div>
-                  ))}
+                    <button onClick={() => setSelected(null)} className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-500">
+                      <XCircle size={16}/>
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* Top harvest farmers */}
-          <div className="card p-6">
-            <h3 className="font-bold text-lg mb-5 flex items-center gap-2"><Users size={18} className="text-blue-400" /> Top Harvest Farmers (by biomass)</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead><tr className="border-b border-white/5 bg-white/3">
-                  {['Farmer', 'Total Requests', 'Total Biomass', 'Completed', 'Revenue'].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-bold text-zinc-500 uppercase">{h}</th>
-                  ))}
-                </tr></thead>
-                <tbody className="divide-y divide-white/5">
-                  {Object.entries(
-                    enriched.reduce((acc, h) => {
-                      const key = h.userId;
-                      if (!acc[key]) acc[key] = { farmer: h._farmer, requests: 0, biomass: 0, completed: 0, revenue: 0 };
-                      acc[key].requests++;
-                      acc[key].biomass += h.biomass;
-                      if (h.status === 'completed') { acc[key].completed++; acc[key].revenue += h.finalTotal ?? 0; }
-                      return acc;
-                    }, {} as Record<string, any>)
-                  )
-                  .sort((a, b) => b[1].biomass - a[1].biomass)
-                  .slice(0, 8)
-                  .map(([uid, d], i) => (
-                    <tr key={uid} className="hover:bg-white/3 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-zinc-600 text-xs font-bold w-4">#{i + 1}</span>
-                          <div>
-                            <p className="font-bold text-sm">{d.farmer?.name ?? `User…${uid.slice(-6)}`}</p>
-                            <p className="text-[10px] text-zinc-500">{d.farmer?.phoneNumber ?? '—'}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm">{d.requests}</td>
-                      <td className="px-4 py-3 font-mono font-bold text-cyan-400">{d.biomass.toLocaleString()} kg</td>
-                      <td className="px-4 py-3"><span className="text-emerald-400 font-bold">{d.completed}</span></td>
-                      <td className="px-4 py-3 font-bold text-emerald-400">{d.revenue ? fmtK(d.revenue) : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modals */}
-      <AnimatePresence>
-        {approveTarget && (
-          <ApproveModal harvest={approveTarget} onClose={() => setApproveTarget(null)} onApprove={handleApprove} />
-        )}
-        {completeTarget && (
-          <CompleteModal harvest={completeTarget} onClose={() => setCompleteTarget(null)} onComplete={handleComplete} />
-        )}
-      </AnimatePresence>
+                <HarvestDetail
+                  h={selectedHarvest}
+                  chat={chats[selectedHarvest._id] ?? []}
+                  onChat={handleChat}
+                  onAdvance={handleAdvance}
+                  onReject={handleReject}
+                  advancing={advancing}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };
