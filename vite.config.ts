@@ -23,6 +23,30 @@ export default defineConfig(({mode}) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // React core — rarely changes, long cache life
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            // Animation library
+            'vendor-motion': ['motion'],
+            // Charts — large, isolate separately
+            'vendor-recharts': ['recharts'],
+            // D3 utilities used by recharts / custom viz
+            'vendor-d3': ['d3'],
+            // Icon set — large SVG bundle
+            'vendor-lucide': ['lucide-react'],
+            // Google GenAI SDK
+            'vendor-genai': ['@google/genai'],
+            // Markdown renderer
+            'vendor-markdown': ['react-markdown'],
+          },
+        },
+      },
+      // Raise the warning threshold slightly — chart apps are naturally heavier
+      chunkSizeWarningLimit: 600,
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
