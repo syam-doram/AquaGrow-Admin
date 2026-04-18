@@ -1,0 +1,5 @@
+{
+  "name": "AquaGrow Admin",
+  "description": "A comprehensive AgTech administration platform for managing marketplace ads, provider registries, harvest sales, and business intelligence with AI-powered insights.",
+  "requestFramePermissions": ["geolocation"]
+}
