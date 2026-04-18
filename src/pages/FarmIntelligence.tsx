@@ -1,16 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Activity, AlertTriangle, Users, Droplets, TrendingUp, Package,
-  ShoppingCart, Zap, RefreshCw, CheckCircle, XCircle, Clock,
-  Fish, Leaf, ChevronRight, Database, Wifi, WifiOff, Eye,
-  BarChart2, DollarSign, FlaskConical, Star, ArrowUpRight, ArrowDownRight,
+  ShoppingCart, RefreshCw, CheckCircle,
+  Fish, Leaf, Database, Wifi, WifiOff,
+  BarChart2, DollarSign, Star, ArrowUpRight, ArrowDownRight,
+  Search, Filter, Phone, MapPin, Award, Waves, ArrowLeft,
+  Calendar, Info, ClipboardList, Pill, CreditCard,
 } from 'lucide-react';
 import {
   fetchIntelligence, fetchFarmers, fetchPonds, fetchHarvestRequests,
   fetchWaterAlerts, fetchAllOrders, fetchROI, checkApiHealth,
+  fetchFeedLogs, fetchMedicineLogs,
   type IntelligenceData, type LiveFarmer, type LivePond,
   type LiveHarvestRequest, type LiveShopOrder,
+  type LiveFeedLog, type LiveMedicineLog,
 } from '../services/aquagrowApi';
 
 // ─── Alert badge colors ───────────────────────────────────────────────────────
@@ -32,6 +36,18 @@ const STAGE_COLORS: Record<string, string> = {
   'Harvest Ready':'bg-emerald-500/20 text-emerald-400',
   Harvest:       'bg-emerald-500/20 text-emerald-400',
 };
+
+const SUB_COLORS: Record<string, string> = {
+  pro_diamond: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  pro_gold:    'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  pro_silver:  'bg-zinc-400/20 text-zinc-300 border-zinc-400/30',
+  pro:         'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  free:        'bg-zinc-700/20 text-zinc-500 border-zinc-700/30',
+};
+
+function getInitials(name: string) {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
 
 const STATUS_COLORS: Record<string, string> = {
   assigned:   'bg-blue-500/20 text-blue-400',
@@ -79,6 +95,101 @@ const SectionHeader = ({ title, sub, icon: Icon }: { title: string; sub?: string
   </div>
 );
 
+// ─── Farmer Detail Overlay ────────────────────────────────────────────────────
+const FarmerDetail = ({ farmer, ponds, onBack }: {
+  farmer: LiveFarmer; ponds: LivePond[]; onBack: () => void;
+}) => {
+  const fp = ponds.filter(p => p.userId === farmer._id);
+  const active   = fp.filter(p => p.status === 'active');
+  const harvest  = fp.filter(p => p.alerts.includes('HARVEST_READY'));
+  const critical = fp.filter(p => p.alerts.some(a => ['CRITICAL_LOW_DO','HIGH_AMMONIA','HIGH_MORTALITY'].includes(a)));
+  return (
+    <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
+      className="fixed inset-0 z-50 bg-zinc-950 overflow-y-auto">
+      {/* Sticky header */}
+      <div className="sticky top-0 z-10 bg-zinc-900/80 backdrop-blur-md border-b border-white/5 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button onClick={onBack} className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all">
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-display font-bold">{farmer.name}</h2>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${SUB_COLORS[farmer.subscriptionStatus] || SUB_COLORS.free}`}>
+                {farmer.subscriptionStatus.replace(/_/g,' ').toUpperCase()}
+              </span>
+            </div>
+            <p className="text-[10px] text-zinc-500 font-mono">{farmer._id} · {farmer.location || 'No location'}</p>
+          </div>
+        </div>
+        <span className="text-xs text-zinc-500 hidden md:block">Joined {new Date(farmer.createdAt).toLocaleDateString('en-IN')}</span>
+      </div>
+      {/* Content */}
+      <div className="max-w-7xl mx-auto w-full p-6 space-y-6">
+        {/* KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Total Ponds',    value: fp.length,       color: 'text-blue-400' },
+            { label: 'Active Ponds',   value: active.length,   color: 'text-emerald-400' },
+            { label: 'Harvest Ready',  value: harvest.length,  color: 'text-amber-400' },
+            { label: 'Critical Alerts',value: critical.length, color: 'text-red-400' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="card p-4 text-center">
+              <p className="text-[10px] text-zinc-500 uppercase font-bold">{label}</p>
+              <p className={`text-3xl font-display font-bold mt-1 ${color}`}>{value}</p>
+            </div>
+          ))}
+        </div>
+        {/* Profile */}
+        <div className="card p-6">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Info size={18} className="text-emerald-400" /> Profile</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-3 rounded-xl bg-white/3"><p className="text-[10px] text-zinc-500 mb-1">Phone</p><p className="font-bold flex items-center gap-1"><Phone size={12} className="text-emerald-400" />{farmer.phoneNumber}</p></div>
+            <div className="p-3 rounded-xl bg-white/3"><p className="text-[10px] text-zinc-500 mb-1">Location</p><p className="font-bold flex items-center gap-1"><MapPin size={12} className="text-emerald-400" />{farmer.location || '—'}</p></div>
+            <div className="p-3 rounded-xl bg-white/3"><p className="text-[10px] text-zinc-500 mb-1">Plan</p><p className="font-bold">{farmer.subscriptionStatus.replace(/_/g,' ')}</p></div>
+            <div className="p-3 rounded-xl bg-white/3"><p className="text-[10px] text-zinc-500 mb-1">Joined</p><p className="font-bold flex items-center gap-1"><Calendar size={12} className="text-emerald-400" />{new Date(farmer.createdAt).toLocaleDateString('en-IN')}</p></div>
+          </div>
+        </div>
+        {/* Ponds */}
+        <div>
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Fish size={18} className="text-cyan-400" /> Ponds ({fp.length})</h3>
+          {fp.length === 0 ? (
+            <div className="card p-10 text-center"><Fish size={28} className="mx-auto text-zinc-600 mb-2" /><p className="text-zinc-500 text-sm">No ponds found</p></div>
+          ) : (
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {fp.map(pond => (
+                <div key={pond._id} className="card p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div><p className="font-bold">{pond.name}</p><p className="text-xs text-zinc-500">{pond.species || 'Vannamei'}</p></div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${STAGE_COLORS[pond.stage] || 'bg-zinc-600/20 text-zinc-400'}`}>{pond.stage}</span>
+                      <span className="text-[10px] text-zinc-500">DOC {pond.doc}</span>
+                    </div>
+                  </div>
+                  {pond.lastWaterLog ? (
+                    <div className="grid grid-cols-3 gap-2 mb-3 p-2.5 rounded-xl bg-white/3 border border-white/5">
+                      <div className="text-center"><p className="text-[10px] text-zinc-500">pH</p><p className={`text-sm font-bold ${(pond.lastWaterLog.ph||0)<7||(pond.lastWaterLog.ph||0)>9?'text-red-400':'text-white'}`}>{pond.lastWaterLog.ph?.toFixed(1)||'—'}</p></div>
+                      <div className="text-center"><p className="text-[10px] text-zinc-500">DO</p><p className={`text-sm font-bold ${(pond.lastWaterLog.do||0)<4?'text-red-400':'text-white'}`}>{pond.lastWaterLog.do?.toFixed(1)||'—'}</p></div>
+                      <div className="text-center"><p className="text-[10px] text-zinc-500">Mort.</p><p className={`text-sm font-bold ${(pond.lastWaterLog.mortality||0)>50?'text-red-400':'text-white'}`}>{pond.lastWaterLog.mortality??'—'}</p></div>
+                    </div>
+                  ) : <div className="p-2 text-center text-[10px] text-zinc-600 bg-white/3 rounded-xl mb-3">No water logs</div>}
+                  <div className="flex items-center justify-between text-xs text-zinc-500 mb-2">
+                    <span>Feed 7d: <b className="text-white">{pond.feedLast7Days.toFixed(1)} kg</b></span>
+                    {pond.size && <span>Size: <b className="text-white">{pond.size} ac</b></span>}
+                  </div>
+                  {pond.alerts.length > 0 && (
+                    <div className="flex flex-wrap gap-1">{pond.alerts.map(a => <span key={a} className={`text-[9px] px-1.5 py-0.5 rounded-full border font-bold ${ALERT_COLORS[a]||'bg-zinc-600/20 text-zinc-400 border-zinc-600/30'}`}>{a.replace(/_/g,' ')}</span>)}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 // ─── Tab definition ───────────────────────────────────────────────────────────
 const TABS = [
   { id: 'overview',   label: 'Overview',    icon: BarChart2 },
@@ -87,10 +198,12 @@ const TABS = [
   { id: 'harvests',   label: 'Harvests',    icon: Leaf },
   { id: 'orders',     label: 'All Orders',  icon: ShoppingCart },
   { id: 'water',      label: 'Water Alerts',icon: Droplets },
+  { id: 'logs',       label: 'Daily Logs',  icon: ClipboardList },
   { id: 'revenue',    label: 'Revenue',     icon: DollarSign },
 ] as const;
 
 type Tab = typeof TABS[number]['id'];
+type LogTab = 'feed' | 'medicine';
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const FarmIntelligence: React.FC = () => {
@@ -109,9 +222,17 @@ const FarmIntelligence: React.FC = () => {
   const [roi, setRoi] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters
+  // Filters & farmer detail
   const [searchFarmer, setSearchFarmer] = useState('');
   const [filterStage, setFilterStage] = useState('all');
+  const [filterSub, setFilterSub] = useState('all');
+  const [selectedFarmer, setSelectedFarmer] = useState<LiveFarmer | null>(null);
+  // Daily logs
+  const [feedLogs, setFeedLogs] = useState<LiveFeedLog[]>([]);
+  const [medLogs, setMedLogs] = useState<LiveMedicineLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logTab, setLogTab] = useState<LogTab>('feed');
+  const [logSearch, setLogSearch] = useState('');
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -157,16 +278,39 @@ const FarmIntelligence: React.FC = () => {
     return () => clearInterval(interval);
   }, [loadAll]);
 
+  // Load logs on-demand when logs tab first opened
+  useEffect(() => {
+    if (activeTab === 'logs' && feedLogs.length === 0 && medLogs.length === 0) {
+      setLogsLoading(true);
+      Promise.all([fetchFeedLogs(), fetchMedicineLogs()])
+        .then(([f, m]) => { setFeedLogs(f); setMedLogs(m); })
+        .catch(console.error)
+        .finally(() => setLogsLoading(false));
+    }
+  }, [activeTab]);
+
   const filteredPonds = ponds.filter(p => {
     const matchStage = filterStage === 'all' || p.stage === filterStage;
     return matchStage;
   });
 
-  const filteredFarmers = farmers.filter(f =>
-    f.name.toLowerCase().includes(searchFarmer.toLowerCase()) ||
-    f.phoneNumber.includes(searchFarmer) ||
-    (f.location || '').toLowerCase().includes(searchFarmer.toLowerCase())
-  );
+  const filteredFarmers = useMemo(() => {
+    let list = farmers;
+    if (searchFarmer) list = list.filter(f =>
+      f.name.toLowerCase().includes(searchFarmer.toLowerCase()) ||
+      f.phoneNumber.includes(searchFarmer) ||
+      (f.location || '').toLowerCase().includes(searchFarmer.toLowerCase())
+    );
+    if (filterSub !== 'all') list = list.filter(f => f.subscriptionStatus === filterSub);
+    return list;
+  }, [farmers, searchFarmer, filterSub]);
+
+  const farmerStats = useMemo(() => ({
+    total:     farmers.length,
+    subscribed:farmers.filter(f => f.subscriptionStatus !== 'free').length,
+    premium:   farmers.filter(f => ['pro_diamond','pro_gold'].includes(f.subscriptionStatus)).length,
+    withPonds: new Set(ponds.map(p => p.userId)).size,
+  }), [farmers, ponds]);
 
   // ─── Loading skeleton ─────────────────────────────────────────────────────
   if (loading && !intel) {
@@ -361,11 +505,41 @@ const FarmIntelligence: React.FC = () => {
           ══════════════════════════════════════╝ */}
           {activeTab === 'farmers' && (
             <div className="space-y-5">
-              <div className="flex items-center gap-3">
-                <input value={searchFarmer} onChange={e => setSearchFarmer(e.target.value)}
-                  placeholder="Search by name, phone, location..."
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/50" />
-                <span className="text-zinc-500 text-sm">{filteredFarmers.length} farmers</span>
+              {/* Farmer KPI strip */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Total Farmers',     value: farmerStats.total,      color: 'bg-blue-500/10 text-blue-400',       icon: Users },
+                  { label: 'Subscribed',         value: farmerStats.subscribed, color: 'bg-emerald-500/10 text-emerald-400', icon: Star },
+                  { label: 'Premium (Gold+)',    value: farmerStats.premium,    color: 'bg-yellow-500/10 text-yellow-400',   icon: Award },
+                  { label: 'Have Active Ponds',  value: farmerStats.withPonds,  color: 'bg-cyan-500/10 text-cyan-400',       icon: Waves },
+                ].map(({ label, value, color, icon: Icon }) => (
+                  <div key={label} className="card p-4 flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}><Icon size={18} /></div>
+                    <div><p className="text-[10px] text-zinc-500 uppercase font-bold">{label}</p><p className="text-2xl font-display font-bold mt-0.5">{value}</p></div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Search + filter */}
+              <div className="flex flex-wrap gap-3">
+                <div className="relative flex-1 min-w-48">
+                  <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input value={searchFarmer} onChange={e => setSearchFarmer(e.target.value)}
+                    placeholder="Search by name, phone, location..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                </div>
+                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                  <Filter size={13} className="text-zinc-500" />
+                  <select value={filterSub} onChange={e => setFilterSub(e.target.value)} className="bg-transparent outline-none text-sm">
+                    <option value="all">All Plans</option>
+                    <option value="free">Free</option>
+                    <option value="pro">Pro</option>
+                    <option value="pro_silver">Silver</option>
+                    <option value="pro_gold">Gold</option>
+                    <option value="pro_diamond">Diamond</option>
+                  </select>
+                </div>
+                <span className="flex items-center text-xs text-zinc-500 px-1">{filteredFarmers.length} farmers</span>
               </div>
 
               {filteredFarmers.length === 0 ? (
@@ -377,48 +551,58 @@ const FarmIntelligence: React.FC = () => {
                 <div className="card overflow-hidden">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-white/5">
+                      <tr className="border-b border-white/5 bg-white/3">
                         <th className="text-left px-5 py-3.5 text-xs font-bold text-zinc-500 uppercase">Farmer</th>
                         <th className="text-left px-5 py-3.5 text-xs font-bold text-zinc-500 uppercase hidden sm:table-cell">Phone</th>
                         <th className="text-left px-5 py-3.5 text-xs font-bold text-zinc-500 uppercase hidden md:table-cell">Location</th>
                         <th className="text-left px-5 py-3.5 text-xs font-bold text-zinc-500 uppercase">Plan</th>
+                        <th className="text-left px-5 py-3.5 text-xs font-bold text-zinc-500 uppercase">Ponds</th>
                         <th className="text-left px-5 py-3.5 text-xs font-bold text-zinc-500 uppercase hidden lg:table-cell">Joined</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredFarmers.map((f, i) => (
-                        <motion.tr key={f._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                          transition={{ delay: i * 0.03 }}
-                          className="border-b border-white/5 hover:bg-white/3 transition-colors">
-                          <td className="px-5 py-3.5">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-xl emerald-gradient flex items-center justify-center text-white text-xs font-bold">
-                                {f.name.charAt(0).toUpperCase()}
+                      {filteredFarmers.map((f, i) => {
+                        const fPonds    = ponds.filter(p => p.userId === f._id);
+                        const hasAlert  = fPonds.some(p => p.alerts.length > 0);
+                        return (
+                          <motion.tr key={f._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                            transition={{ delay: i * 0.03 }}
+                            className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer"
+                            onClick={() => setSelectedFarmer(f)}>
+                            <td className="px-5 py-3.5">
+                              <div className="flex items-center gap-3">
+                                <div className={`relative w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs ${hasAlert ? 'bg-red-500/20 text-red-300' : 'bg-emerald-500/10 text-emerald-300'}`}>
+                                  {getInitials(f.name)}
+                                  {hasAlert && <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-zinc-950" />}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-sm">{f.name}</p>
+                                  <p className="text-[10px] text-zinc-500 font-mono">{f._id.slice(-6)}</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-semibold text-sm">{f.name}</p>
-                                <p className="text-[10px] text-zinc-500 font-mono">{f._id.slice(-6)}</p>
+                            </td>
+                            <td className="px-5 py-3.5 hidden sm:table-cell text-sm text-zinc-300">{f.phoneNumber}</td>
+                            <td className="px-5 py-3.5 hidden md:table-cell text-sm text-zinc-400">{f.location || '—'}</td>
+                            <td className="px-5 py-3.5">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${SUB_COLORS[f.subscriptionStatus] || SUB_COLORS.free}`}>
+                                {f.subscriptionStatus.toUpperCase().replace(/_/g,' ')}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <div className="flex items-center gap-1.5">
+                                <Waves size={12} className="text-blue-400" />
+                                <span className="text-sm font-bold">{fPonds.length}</span>
+                                {fPonds.filter(p => p.status === 'active').length > 0 && (
+                                  <span className="text-[10px] text-emerald-400">({fPonds.filter(p => p.status === 'active').length} active)</span>
+                                )}
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-5 py-3.5 hidden sm:table-cell text-sm text-zinc-300">{f.phoneNumber}</td>
-                          <td className="px-5 py-3.5 hidden md:table-cell text-sm text-zinc-400">{f.location || '—'}</td>
-                          <td className="px-5 py-3.5">
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
-                              f.subscriptionStatus.includes('diamond') ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' :
-                              f.subscriptionStatus.includes('gold')    ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
-                              f.subscriptionStatus.includes('silver')  ? 'bg-zinc-400/20 text-zinc-300 border-zinc-400/30' :
-                              f.subscriptionStatus === 'pro'           ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
-                                                                          'bg-zinc-600/20 text-zinc-500 border-zinc-600/30'
-                            }`}>
-                              {f.subscriptionStatus.toUpperCase().replace('_', ' ')}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3.5 hidden lg:table-cell text-xs text-zinc-500">
-                            {new Date(f.createdAt).toLocaleDateString('en-IN')}
-                          </td>
-                        </motion.tr>
-                      ))}
+                            </td>
+                            <td className="px-5 py-3.5 hidden lg:table-cell text-xs text-zinc-500">
+                              {new Date(f.createdAt).toLocaleDateString('en-IN')}
+                            </td>
+                          </motion.tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -688,6 +872,98 @@ const FarmIntelligence: React.FC = () => {
           {/* ══════════════════════════════════════╗
                REVENUE TAB
           ══════════════════════════════════════╝ */}
+          {/* ══════════════════════════════════════╗
+               DAILY LOGS TAB
+          ══════════════════════════════════════╝ */}
+          {activeTab === 'logs' && (
+            <div className="space-y-5">
+              {/* Sub-tabs */}
+              <div className="flex gap-1 p-1 bg-white/5 rounded-xl w-fit">
+                <button onClick={() => setLogTab('feed')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${logTab === 'feed' ? 'bg-emerald-600 text-white' : 'text-zinc-400 hover:text-white'}`}>
+                  <ClipboardList size={14} /> Feed Logs
+                </button>
+                <button onClick={() => setLogTab('medicine')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${logTab === 'medicine' ? 'bg-purple-600 text-white' : 'text-zinc-400 hover:text-white'}`}>
+                  <Pill size={14} /> Medicine Logs
+                </button>
+              </div>
+              {/* Search */}
+              <div className="relative max-w-md">
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input value={logSearch} onChange={e => setLogSearch(e.target.value)}
+                  placeholder="Search by farmer or pond..."
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/50" />
+              </div>
+              {/* Feed Logs */}
+              {logTab === 'feed' && (
+                <div className="card overflow-hidden">
+                  <div className="p-5 border-b border-white/5 flex items-center justify-between">
+                    <h3 className="font-bold flex items-center gap-2">Feed Logs <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LIVE</span></h3>
+                    <span className="text-xs text-zinc-500">{logsLoading ? 'Loading…' : `${feedLogs.filter(l => !logSearch || l.farmer?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.pond?.name?.toLowerCase().includes(logSearch.toLowerCase())).length} records`}</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    {logsLoading ? <div className="p-10 text-center text-zinc-500">Loading feed logs…</div>
+                     : feedLogs.length === 0 ? <div className="p-10 text-center text-zinc-600">No feed logs found in database.</div>
+                     : (
+                      <table className="w-full text-left">
+                        <thead><tr className="border-b border-white/5 bg-white/3">
+                          {['Farmer','Phone','Pond','Feed Type','Qty','Unit','Date'].map(h => <th key={h} className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>)}
+                        </tr></thead>
+                        <tbody className="divide-y divide-white/5">
+                          {feedLogs.filter(l => !logSearch || l.farmer?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.pond?.name?.toLowerCase().includes(logSearch.toLowerCase())).map(log => (
+                            <tr key={log._id} className="hover:bg-white/3 transition-colors">
+                              <td className="px-5 py-3.5 font-bold text-sm">{log.farmer?.name ?? '—'}</td>
+                              <td className="px-5 py-3.5 text-xs text-zinc-500">{log.farmer?.phoneNumber ?? '—'}</td>
+                              <td className="px-5 py-3.5 text-sm text-zinc-300">{log.pond?.name ?? log.pondId?.slice(-6) ?? '—'}</td>
+                              <td className="px-5 py-3.5 text-xs text-zinc-400 capitalize">{log.feedType ?? '—'}</td>
+                              <td className="px-5 py-3.5 font-mono font-bold text-emerald-400">{log.quantity}</td>
+                              <td className="px-5 py-3.5 text-xs text-zinc-500">{log.unit ?? 'kg'}</td>
+                              <td className="px-5 py-3.5 text-xs text-zinc-500">{log.date ? new Date(log.date).toLocaleDateString('en-IN') : new Date(log.createdAt).toLocaleDateString('en-IN')}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* Medicine Logs */}
+              {logTab === 'medicine' && (
+                <div className="card overflow-hidden">
+                  <div className="p-5 border-b border-white/5 flex items-center justify-between">
+                    <h3 className="font-bold flex items-center gap-2">Medicine Logs <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">LIVE</span></h3>
+                    <span className="text-xs text-zinc-500">{logsLoading ? 'Loading…' : `${medLogs.filter(l => !logSearch || l.farmer?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.pond?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.medicineName?.toLowerCase().includes(logSearch.toLowerCase())).length} records`}</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    {logsLoading ? <div className="p-10 text-center text-zinc-500">Loading medicine logs…</div>
+                     : medLogs.length === 0 ? <div className="p-10 text-center text-zinc-600">No medicine logs found in database.</div>
+                     : (
+                      <table className="w-full text-left">
+                        <thead><tr className="border-b border-white/5 bg-white/3">
+                          {['Farmer','Phone','Pond','Medicine','Dosage','Qty','Date'].map(h => <th key={h} className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>)}
+                        </tr></thead>
+                        <tbody className="divide-y divide-white/5">
+                          {medLogs.filter(l => !logSearch || l.farmer?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.pond?.name?.toLowerCase().includes(logSearch.toLowerCase()) || l.medicineName?.toLowerCase().includes(logSearch.toLowerCase())).map(log => (
+                            <tr key={log._id} className="hover:bg-white/3 transition-colors">
+                              <td className="px-5 py-3.5 font-bold text-sm">{log.farmer?.name ?? '—'}</td>
+                              <td className="px-5 py-3.5 text-xs text-zinc-500">{log.farmer?.phoneNumber ?? '—'}</td>
+                              <td className="px-5 py-3.5 text-sm text-zinc-300">{log.pond?.name ?? log.pondId?.slice(-6) ?? '—'}</td>
+                              <td className="px-5 py-3.5 font-bold text-purple-400">{log.medicineName ?? '—'}</td>
+                              <td className="px-5 py-3.5 text-xs text-zinc-400">{log.dosage ?? '—'}</td>
+                              <td className="px-5 py-3.5 font-mono text-sm">{log.quantity ?? '—'} {log.unit ?? ''}</td>
+                              <td className="px-5 py-3.5 text-xs text-zinc-500">{log.date ? new Date(log.date).toLocaleDateString('en-IN') : new Date(log.createdAt).toLocaleDateString('en-IN')}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'revenue' && (
             <div className="space-y-6">
               {/* Revenue KPIs */}
@@ -757,6 +1033,17 @@ const FarmIntelligence: React.FC = () => {
           )}
 
         </motion.div>
+      </AnimatePresence>
+
+      {/* Farmer detail overlay */}
+      <AnimatePresence>
+        {selectedFarmer && (
+          <FarmerDetail
+            farmer={selectedFarmer}
+            ponds={ponds}
+            onBack={() => setSelectedFarmer(null)}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
