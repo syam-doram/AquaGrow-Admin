@@ -9,9 +9,9 @@
  */
 
 // In dev, VITE_API_BASE_URL points to local Express (port 3005) via Vite proxy.
-// In production, it falls back to the Render-hosted backend.
+// In production (Render), falls back to the live backend URL below.
 export const BASE_URL: string =
-  (import.meta as any).env?.VITE_API_BASE_URL ?? 'https://aquagrow.onrender.com/api';
+  (import.meta as any).env?.VITE_API_BASE_URL ?? 'https://aquagrow-admin.onrender.com/api';
 
 // ═══════════════════════════════════════════════════════════════
 //  TOKEN MANAGEMENT
