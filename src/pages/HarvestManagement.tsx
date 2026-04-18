@@ -27,8 +27,11 @@ export type HarvestStage =
   | 'quality_approved'
   | 'harvest_started'
   | 'harvested'
+  | 'farmer_confirmation'
   | 'delivered'
+  | 'buyer_confirmation'
   | 'payment_received'
+  | 'finance_audit'
   | 'payment_released'
   | 'completed'
   | 'rejected';
@@ -52,18 +55,22 @@ const STAGES: Record<HarvestStage, StageConfig> = {
   quality_check:    { label: 'Quality Check',        short: 'QC',           color: 'text-orange-400 bg-orange-500/10 border-orange-500/20',  icon: Star,          actor: 'provider', description: 'Provider performing on-site quality inspection' },
   quality_approved: { label: 'Quality Approved',     short: 'QC Passed',    color: 'text-lime-400   bg-lime-500/10   border-lime-500/20',    icon: ShieldCheck,   actor: 'provider', description: 'Provider confirmed quality — harvest cleared to proceed' },
   harvest_started:  { label: 'Harvest Started',      short: 'In Progress',  color: 'text-sky-400    bg-sky-500/10    border-sky-500/20',     icon: Activity,      actor: 'provider', description: 'Vehicle dispatched, harvest operation underway' },
-  harvested:        { label: 'Harvested',            short: 'Harvested',    color: 'text-teal-400   bg-teal-500/10   border-teal-500/20',    icon: Fish,          actor: 'provider', description: 'Harvest completed and produce collected' },
-  delivered:        { label: 'Delivered to Buyer',   short: 'Delivered',    color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', icon: Truck,        actor: 'admin',    description: 'Produce successfully delivered to buyer' },
-  payment_received: { label: 'Payment Received',     short: 'Paid',         color: 'text-green-400  bg-green-500/10  border-green-500/20',   icon: Banknote,      actor: 'system',   description: 'Buyer payment received in company bank account' },
-  payment_released: { label: 'Payment Released',     short: 'Farmer Paid',  color: 'text-emerald-300 bg-emerald-400/10 border-emerald-400/20', icon: CreditCard,  actor: 'system',   description: 'Net amount (after commission) released to farmer' },
-  completed:        { label: 'Completed',            short: 'Done',         color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', icon: BadgeCheck,   actor: 'system',   description: 'Full harvest lifecycle completed successfully' },
-  rejected:         { label: 'Rejected',             short: 'Rejected',     color: 'text-red-400    bg-red-500/10    border-red-500/20',     icon: XCircle,       actor: 'admin',    description: 'Harvest request rejected' },
+  harvested:           { label: 'Harvested',               short: 'Harvested',      color: 'text-teal-400   bg-teal-500/10   border-teal-500/20',    icon: Fish,          actor: 'provider', description: 'Harvest completed and produce collected' },
+  farmer_confirmation: { label: 'Farmer Confirmation',      short: 'Farmer Confirm', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',  icon: CheckCircle2,  actor: 'admin',    description: 'Farmer confirms actual harvest quantity and quality' },
+  delivered:           { label: 'Delivered to Buyer',       short: 'Delivered',      color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', icon: Truck,        actor: 'admin',    description: 'Produce dispatched and delivered to buyer' },
+  buyer_confirmation:  { label: 'Buyer Confirmation',       short: 'Buyer Confirm',  color: 'text-rose-400   bg-rose-500/10   border-rose-500/20',    icon: Building2,     actor: 'admin',    description: 'Buyer confirms receipt of produce and agrees to pay' },
+  payment_received:    { label: 'Payment Received',         short: 'Buyer Paid',     color: 'text-green-400  bg-green-500/10  border-green-500/20',   icon: Banknote,      actor: 'system',   description: 'Buyer releases payment to company bank account' },
+  finance_audit:       { label: 'Finance Team Audit',       short: 'Finance Audit',  color: 'text-orange-400 bg-orange-500/10 border-orange-500/20',  icon: Receipt,       actor: 'admin',    description: 'Finance team audits harvest amount and commission calculation' },
+  payment_released:    { label: 'Payment Released to Farmer', short: 'Farmer Paid', color: 'text-emerald-300 bg-emerald-400/10 border-emerald-400/20', icon: CreditCard,  actor: 'system',   description: 'Finance team releases net payment to farmer account' },
+  completed:           { label: 'Completed',                short: 'Done',           color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', icon: BadgeCheck,   actor: 'system',   description: 'Full harvest lifecycle completed successfully' },
+  rejected:            { label: 'Rejected',                 short: 'Rejected',       color: 'text-red-400    bg-red-500/10    border-red-500/20',     icon: XCircle,       actor: 'admin',    description: 'Harvest request rejected' },
 };
 
 const PIPELINE_ORDER: HarvestStage[] = [
   'pending','rate_negotiation','rate_confirmed','buyer_deal','buyer_confirmed',
   'provider_assigned','quality_check','quality_approved','harvest_started',
-  'harvested','delivered','payment_received','payment_released','completed',
+  'harvested','farmer_confirmation','delivered','buyer_confirmation',
+  'payment_received','finance_audit','payment_released','completed',
 ];
 
 function stageIndex(s: string): number {
@@ -444,10 +451,39 @@ const HarvestDetail = ({
         </div>
       )}
 
-      {/* 10. HARVESTED → Delivered */}
+      {/* 10. HARVESTED → Farmer Confirmation */}
       {stage === 'harvested' && (
         <div className="card p-5 space-y-4">
-          <h4 className="font-bold flex items-center gap-2"><Truck size={15} className="text-emerald-400" /> Confirm Delivery to Buyer</h4>
+          <h4 className="font-bold flex items-center gap-2"><CheckCircle2 size={15} className="text-yellow-400" /> Get Farmer Confirmation</h4>
+          <p className="text-sm text-zinc-400">Farmer must confirm the actual harvested quantity matches expectations before dispatch.</p>
+          <div className="space-y-2">
+            {[
+              `Farmer: ${h._farmer?.name ?? 'Farmer'}`,
+              `Pond: ${h._pond?.name ?? `Pond…${h.pondId.slice(-6)}`}`,
+              `Harvest weight: ${(h.finalWeight ?? h.biomass).toLocaleString()} kg`,
+              `Agreed rate: ₹${h.price ?? '—'}/kg`,
+            ].map(item => (
+              <div key={item} className="flex items-center gap-2 p-2.5 rounded-xl bg-white/3 border border-white/5">
+                <CheckCircle2 size={12} className="text-yellow-400 shrink-0" />
+                <span className="text-xs text-zinc-300">{item}</span>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => onAdvance(h._id, 'farmer_confirmation', { status: 'farmer_confirmation' })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-yellow-600 text-white hover:bg-yellow-500 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+            Mark Farmer Confirmed ✓
+          </button>
+        </div>
+      )}
+
+      {/* 11. FARMER CONFIRMATION → Delivered */}
+      {stage === 'farmer_confirmation' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><Truck size={15} className="text-emerald-400" /> Dispatch & Deliver to Buyer</h4>
+          <div className="p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/10 text-xs text-yellow-300">
+            ✓ Farmer confirmed — produce ready for dispatch to buyer
+          </div>
           <button onClick={() => onAdvance(h._id, 'delivered', { status: 'delivered' })}
             disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">
             {advancing ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />}
@@ -456,15 +492,42 @@ const HarvestDetail = ({
         </div>
       )}
 
-      {/* 11. DELIVERED → Payment received from buyer */}
+      {/* 12. DELIVERED → Buyer Confirmation */}
       {stage === 'delivered' && (
         <div className="card p-5 space-y-4">
-          <h4 className="font-bold flex items-center gap-2"><Banknote size={15} className="text-green-400" /> Confirm Buyer Payment Received</h4>
+          <h4 className="font-bold flex items-center gap-2"><Building2 size={15} className="text-rose-400" /> Get Buyer Confirmation</h4>
+          <p className="text-sm text-zinc-400">Buyer must confirm receipt of produce and agree to release payment.</p>
+          <div className="space-y-2">
+            {[
+              'Buyer inspects received produce',
+              'Quantity matches delivery note',
+              'Quality matches agreed grade',
+              'Buyer agrees to release payment',
+            ].map(item => (
+              <div key={item} className="flex items-center gap-2 p-2.5 rounded-xl bg-white/3 border border-white/5">
+                <CheckCircle2 size={12} className="text-rose-400 shrink-0" />
+                <span className="text-xs text-zinc-300">{item}</span>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => onAdvance(h._id, 'buyer_confirmation', { status: 'buyer_confirmation' })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-rose-700 text-white hover:bg-rose-600 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <Building2 size={14} />}
+            Mark Buyer Confirmed ✓
+          </button>
+        </div>
+      )}
+
+      {/* 13. BUYER CONFIRMATION → Payment Received */}
+      {stage === 'buyer_confirmation' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><Banknote size={15} className="text-green-400" /> Buyer Releases Payment</h4>
           <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/10 space-y-2">
             <div className="flex justify-between text-sm"><span className="text-zinc-400">Gross Amount</span><span className="font-bold">{fmtK((h.price ?? 0) * (h.finalWeight ?? h.biomass))}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-zinc-400">Commission ({COMMISSION_PCT}%)</span><span className="font-bold text-red-400">- {fmtK(Math.round((h.price ?? 0) * (h.finalWeight ?? h.biomass) * COMMISSION_PCT / 100))}</span></div>
-            <div className="flex justify-between text-sm border-t border-white/5 pt-2"><span className="text-zinc-400">To Farmer</span><span className="font-bold text-green-400">{fmtK(Math.round((h.price ?? 0) * (h.finalWeight ?? h.biomass) * (100 - COMMISSION_PCT) / 100))}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-zinc-400">Commission ({COMMISSION_PCT}%)</span><span className="font-bold text-red-400">− {fmtK(Math.round((h.price ?? 0) * (h.finalWeight ?? h.biomass) * COMMISSION_PCT / 100))}</span></div>
+            <div className="flex justify-between text-sm border-t border-white/5 pt-2"><span className="text-zinc-400">Net to Farmer</span><span className="font-bold text-green-400">{fmtK(Math.round((h.price ?? 0) * (h.finalWeight ?? h.biomass) * (100 - COMMISSION_PCT) / 100))}</span></div>
           </div>
+          <p className="text-xs text-zinc-500">Buyer has confirmed receipt — mark payment received in company bank account.</p>
           <button onClick={() => onAdvance(h._id, 'payment_received', { status: 'payment_received', finalTotal: (h.price ?? 0) * (h.finalWeight ?? h.biomass) })}
             disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-green-700 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2">
             {advancing ? <Loader2 size={14} className="animate-spin" /> : <Banknote size={14} />}
@@ -473,27 +536,70 @@ const HarvestDetail = ({
         </div>
       )}
 
-      {/* 12. PAYMENT RECEIVED → Release to farmer */}
+      {/* 14. PAYMENT RECEIVED → Finance Audit */}
       {stage === 'payment_received' && (
         <div className="card p-5 space-y-4">
-          <h4 className="font-bold flex items-center gap-2"><CreditCard size={15} className="text-emerald-300" /> Release Payment to Farmer</h4>
-          <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
-            <p className="text-xs text-zinc-400 mb-1">Net amount to release (after {COMMISSION_PCT}% commission deducted)</p>
-            <p className="text-2xl font-bold text-emerald-400">{fmtK(Math.round((h.finalTotal ?? (h.price ?? 0) * (h.finalWeight ?? h.biomass)) * (100 - COMMISSION_PCT) / 100))}</p>
-            <p className="text-xs text-zinc-500 mt-1">→ Farmer bank account</p>
+          <h4 className="font-bold flex items-center gap-2"><Receipt size={15} className="text-orange-400" /> Finance Team Audit</h4>
+          <p className="text-sm text-zinc-400">Finance team reviews and audits the harvest transaction — verifies amounts, commission, and payment before releasing to farmer.</p>
+          <div className="space-y-2">
+            {[
+              { label: 'Gross amount',          value: fmtK((h.price ?? 0) * (h.finalWeight ?? h.biomass)) },
+              { label: `Commission (${COMMISSION_PCT}%)`, value: `− ${fmtK(Math.round((h.price ?? 0) * (h.finalWeight ?? h.biomass) * COMMISSION_PCT / 100))}` },
+              { label: 'Net to farmer',          value: fmtK(Math.round((h.price ?? 0) * (h.finalWeight ?? h.biomass) * (100 - COMMISSION_PCT) / 100)) },
+              { label: 'Harvest weight',         value: `${(h.finalWeight ?? h.biomass).toLocaleString()} kg` },
+              { label: 'Rate per kg',            value: `₹${h.price ?? '—'}` },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between p-2.5 rounded-xl bg-white/3 border border-white/5">
+                <span className="text-xs text-zinc-400">{label}</span>
+                <span className="text-xs font-bold text-zinc-200 font-mono">{value}</span>
+              </div>
+            ))}
           </div>
-          <button onClick={() => onAdvance(h._id, 'payment_released', { status: 'payment_released' })}
-            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">
-            {advancing ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
-            Release Net Payment to Farmer
+          <div className="p-3 rounded-xl bg-orange-500/5 border border-orange-500/10 text-xs text-orange-300">
+            ⚠ Finance admin must review and approve before payment is released to farmer
+          </div>
+          <button onClick={() => onAdvance(h._id, 'finance_audit', { status: 'finance_audit' })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-orange-700 text-white hover:bg-orange-600 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <Receipt size={14} />}
+            Send for Finance Audit
           </button>
         </div>
       )}
 
-      {/* 13. PAYMENT RELEASED → Complete */}
+      {/* 15. FINANCE AUDIT → Release to Farmer */}
+      {stage === 'finance_audit' && (
+        <div className="card p-5 space-y-4">
+          <h4 className="font-bold flex items-center gap-2"><CreditCard size={15} className="text-emerald-300" /> Finance: Approve & Release to Farmer</h4>
+          <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
+            <p className="text-xs text-zinc-400 mb-1">Audited net amount (after {COMMISSION_PCT}% commission)</p>
+            <p className="text-2xl font-bold text-emerald-400">{fmtK(Math.round((h.finalTotal ?? (h.price ?? 0) * (h.finalWeight ?? h.biomass)) * (100 - COMMISSION_PCT) / 100))}</p>
+            <p className="text-xs text-zinc-500 mt-1">→ Will be transferred to farmer bank account</p>
+          </div>
+          <div className="p-3 rounded-xl bg-orange-500/5 border border-orange-500/10">
+            <p className="text-xs font-bold text-orange-400 mb-2">Finance Audit Checklist</p>
+            <div className="space-y-1.5">
+              {['Amount matches approved harvest record', 'Commission correctly deducted', 'No pending disputes on this harvest', 'Farmer bank details verified'].map(item => (
+                <div key={item} className="flex items-center gap-2 text-xs text-zinc-400">
+                  <CheckCircle2 size={11} className="text-orange-400 shrink-0" />{item}
+                </div>
+              ))}
+            </div>
+          </div>
+          <button onClick={() => onAdvance(h._id, 'payment_released', { status: 'payment_released' })}
+            disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">
+            {advancing ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
+            Finance Approved — Release Net Payment to Farmer
+          </button>
+        </div>
+      )}
+
+      {/* 16. PAYMENT RELEASED → Complete */}
       {stage === 'payment_released' && (
         <div className="card p-5 space-y-4">
           <h4 className="font-bold flex items-center gap-2"><BadgeCheck size={15} className="text-emerald-400" /> Mark Harvest Complete</h4>
+          <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-xs text-emerald-300">
+            ✓ Payment released to farmer — all stakeholders settled
+          </div>
           <button onClick={() => onAdvance(h._id, 'completed', { status: 'completed' })}
             disabled={advancing} className="w-full text-sm font-bold py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">
             {advancing ? <Loader2 size={14} className="animate-spin" /> : <BadgeCheck size={14} />}
