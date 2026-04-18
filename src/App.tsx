@@ -15,7 +15,6 @@ import Marketing from './pages/Marketing';
 import PriceControl from './pages/PriceControl';
 import BuyerManagement from './pages/BuyerManagement';
 import SupplyChain from './pages/SupplyChain';
-import MarketIntelligence from './pages/MarketIntelligence';
 import SupportTickets from './pages/SupportTickets';
 import Login from './pages/Login';
 
@@ -91,7 +90,6 @@ const App = () => {
         {/* ── Growth & Comms ────────────────────────────── */}
         <Route path="/marketing"          element={<ProtectedRoute><Layout><Marketing /></Layout></ProtectedRoute>} />
         <Route path="/content"            element={<ProtectedRoute><Layout><ContentManagement /></Layout></ProtectedRoute>} />
-        <Route path="/market-intelligence"element={<ProtectedRoute><Layout><MarketIntelligence /></Layout></ProtectedRoute>} />
         <Route path="/alerts"             element={<ProtectedRoute><Layout><Alerts /></Layout></ProtectedRoute>} />
 
         {/* ── System ────────────────────────────────────── */}

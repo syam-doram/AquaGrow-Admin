@@ -44,7 +44,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     {
       label: 'Farmers',
       items: [
-        { icon: Users, label: 'Farm Intelligence', path: '/market-intelligence' },
         { icon: Package, label: 'Harvest Management', path: '/harvests' },
         { icon: Award, label: 'Certifications', path: '/certifications' },
       ],
@@ -77,7 +76,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       items: [
         { icon: Megaphone, label: 'Marketing', path: '/marketing' },
         { icon: BookOpen, label: 'Content', path: '/content' },
-        { icon: BarChart3, label: 'Market Intelligence', path: '/market-intelligence' },
         { icon: Bell, label: 'Alerts System', path: '/alerts' },
       ],
     },
