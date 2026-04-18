@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { SubscriptionPlan, FarmerSubscription, Coupon } from '../types';
 import { storageService } from '../services/storageService';
+import { fetchSubscriptions, LiveSubscriptionDetail } from '../services/aquagrowApi';
 
 // ─── Local Types ───────────────────────────────────────────────────────────────
 type Tab =
@@ -90,6 +91,8 @@ const Subscriptions = () => {
   const [tab, setTab] = useState<Tab>('plans');
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [farmerSubs, setFarmerSubs] = useState<FarmerSubscription[]>([]);
+  const [liveSubs, setLiveSubs] = useState<LiveSubscriptionDetail[]>([]);
+  const [liveLoading, setLiveLoading] = useState(true);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [billing] = useState<BillingTx[]>(SEED_BILLING);
   const [featureGates, setFeatureGates] = useState(FEATURE_GATES.map(f => ({ ...f })));
@@ -113,18 +116,37 @@ const Subscriptions = () => {
     setFarmerSubs(storageService.getFarmerSubs());
     setCoupons(storageService.getCoupons());
   };
-  useEffect(() => { load(); }, []);
 
-  const stats = useMemo(() => ({
-    active:       farmerSubs.filter(s => s.status === 'ACTIVE').length,
-    expiringSoon: farmerSubs.filter(s => { const d = new Date(s.endDate); const n = new Date(); return d > n && (d.getTime() - n.getTime()) / 86400000 < 30; }).length,
-    suspended:    farmerSubs.filter(s => s.status === 'SUSPENDED').length,
-    grace:        farmerSubs.filter(s => s.status === 'GRACE_PERIOD').length,
-    totalRevenue: billing.filter(t => t.status === 'SUCCESS').reduce((s, t) => s + t.amount, 0),
-    mrr:    48950,
-    churn:  6.4,
-    convRate: 38,
-  }), [farmerSubs, billing]);
+  // Load real subscriptions from MongoDB
+  useEffect(() => {
+    load();
+    fetchSubscriptions()
+      .then(setLiveSubs)
+      .catch(console.error)
+      .finally(() => setLiveLoading(false));
+  }, []);
+
+  // Use live DB data for counts if available, fall back to local mock
+  const stats = useMemo(() => {
+    const src = liveSubs.length > 0 ? liveSubs : farmerSubs.map(s => ({ ...s, status: s.status }));
+    const now = new Date();
+    return {
+      active:       liveSubs.length > 0
+        ? liveSubs.filter(s => s.status === 'active').length
+        : farmerSubs.filter(s => s.status === 'ACTIVE').length,
+      expiringSoon: liveSubs.length > 0
+        ? liveSubs.filter(s => { if (!s.endDate) return false; const d = new Date(s.endDate); return d > now && (d.getTime() - now.getTime()) / 86400000 < 30; }).length
+        : farmerSubs.filter(s => { const d = new Date(s.endDate); return d > now && (d.getTime() - now.getTime()) / 86400000 < 30; }).length,
+      suspended:    liveSubs.length > 0
+        ? liveSubs.filter(s => s.status === 'inactive').length
+        : farmerSubs.filter(s => s.status === 'SUSPENDED').length,
+      grace:        farmerSubs.filter(s => s.status === 'GRACE_PERIOD').length,
+      totalRevenue: billing.filter(t => t.status === 'SUCCESS').reduce((s, t) => s + t.amount, 0),
+      mrr:    48950,
+      churn:  6.4,
+      convRate: 38,
+    };
+  }, [liveSubs, farmerSubs, billing]);
 
   const planDist = useMemo(() => plans.map((p, i) => ({
     name: p.name,
@@ -300,7 +322,7 @@ const Subscriptions = () => {
         </div>
       )}
 
-      {/* ═══ USER SUBSCRIPTIONS ══════════════════════════════════════════════ */}
+      {/* ═══ USER SUBSCRIPTIONS — LIVE FROM DB ═══════════════════════════════ */}
       {tab === 'users' && (
         <div className="space-y-5">
           <div className="flex flex-wrap gap-3">
@@ -312,53 +334,68 @@ const Subscriptions = () => {
               <Filter size={13} className="text-zinc-500" />
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-transparent outline-none text-sm">
                 <option value="all">All Status</option>
-                {['ACTIVE','EXPIRED','GRACE_PERIOD','SUSPENDED','CANCELLED'].map(s => <option key={s} value={s}>{s}</option>)}
+                {['active','inactive','expired'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>
 
           <div className="glass-panel overflow-hidden">
             <div className="p-5 border-b border-white/5 flex items-center justify-between">
-              <h3 className="font-bold">All Subscriber Accounts</h3>
-              <span className="text-xs text-zinc-500">{filtered.length} records</span>
+              <h3 className="font-bold flex items-center gap-2">
+                All Subscriber Accounts
+                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LIVE</span>
+              </h3>
+              <span className="text-xs text-zinc-500">{liveLoading ? 'Loading…' : `${liveSubs.filter(s => filterStatus === 'all' || s.status === filterStatus).filter(s => !search || s.farmer?.name?.toLowerCase().includes(search.toLowerCase()) || s.planName?.toLowerCase().includes(search.toLowerCase())).length} records`}</span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-white/5 bg-white/5">
-                    {['Subscriber','Plan','Status','Expires','Amount Paid','Ponds Usage','Payment','Actions'].map(h => (
-                      <th key={h} className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
+              {liveLoading ? (
+                <div className="p-10 text-center text-zinc-500 text-sm">Loading subscriptions…</div>
+              ) : liveSubs.length === 0 ? (
+                <div className="p-10 text-center text-zinc-600 text-sm">No subscriptions found in the database.</div>
+              ) : (
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-white/5 bg-white/5">
+                      {['Farmer','Plan','Status','Start Date','Expires','Features','Actions'].map(h => (
+                        <th key={h} className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {liveSubs
+                      .filter(s => filterStatus === 'all' || s.status === filterStatus)
+                      .filter(s => !search || s.farmer?.name?.toLowerCase().includes(search.toLowerCase()) || s.planName?.toLowerCase().includes(search.toLowerCase()))
+                      .map(sub => (
+                        <tr key={sub._id} className="hover:bg-white/5 transition-colors">
+                          <td className="px-5 py-4">
+                            <p className="font-bold text-sm">{sub.farmer?.name ?? '—'}</p>
+                            <p className="text-[10px] text-zinc-600">{sub.farmer?.phoneNumber ?? sub.userId}</p>
+                            {sub.farmer?.location && <p className="text-[10px] text-zinc-700">{sub.farmer.location}</p>}
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 capitalize">{sub.planName}</span>
+                          </td>
+                          <td className="px-5 py-4">
+                            <StatusBadge s={sub.status?.toUpperCase()} />
+                          </td>
+                          <td className="px-5 py-4 text-xs text-zinc-400">{sub.startDate ? new Date(sub.startDate).toLocaleDateString() : '—'}</td>
+                          <td className="px-5 py-4 text-xs text-zinc-400">{sub.endDate ? new Date(sub.endDate).toLocaleDateString() : '∞'}</td>
+                          <td className="px-5 py-4">
+                            <div className="flex flex-wrap gap-1">
+                              {(sub.features ?? []).slice(0, 3).map(f => (
+                                <span key={f} className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-500">{f}</span>
+                              ))}
+                              {(sub.features ?? []).length > 3 && <span className="text-[9px] text-zinc-600">+{(sub.features ?? []).length - 3} more</span>}
+                            </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="text-[10px] text-zinc-600 font-mono">{sub._id.slice(-6)}</span>
+                          </td>
+                        </tr>
                     ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {filtered.map(sub => {
-                    const plan = plans.find(p => p.id === sub.planId);
-                    const maxPonds = plan?.limits.ponds ?? 1;
-                    const pct = maxPonds === -1 ? 40 : Math.min(100, (sub.usagePonds / maxPonds) * 100);
-                    const isNearLimit = pct > 80;
-                    return (
-                      <tr key={sub.id} className="hover:bg-white/5 transition-colors">
-                        <td className="px-5 py-4"><p className="font-bold text-sm">{sub.farmerName}</p><p className="text-[10px] text-zinc-600">{sub.farmerId}</p></td>
-                        <td className="px-5 py-4"><span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{sub.planName}</span></td>
-                        <td className="px-5 py-4"><StatusBadge s={sub.status} /></td>
-                        <td className="px-5 py-4 text-sm text-zinc-400">{sub.endDate === '2099-01-01' ? '∞ Forever' : sub.endDate}</td>
-                        <td className="px-5 py-4 font-mono font-bold">₹{sub.amountPaid.toLocaleString()}</td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 h-1.5 bg-zinc-800 rounded-full overflow-hidden"><div className={`h-full rounded-full ${isNearLimit ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} /></div>
-                            <span className={`text-xs ${isNearLimit ? 'text-red-400 font-bold' : 'text-zinc-400'}`}>{sub.usagePonds}/{maxPonds === -1 ? '∞' : maxPonds}</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-xs text-zinc-400">{sub.paymentMethod}</td>
-                        <td className="px-5 py-4">
-                          <button onClick={() => setManualModal(sub)} className="text-xs font-bold px-3 py-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg transition-all">Manage</button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>

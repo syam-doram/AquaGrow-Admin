@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { Transaction } from '../types';
 import { storageService } from '../services/storageService';
+import { fetchExpenses, LiveExpense } from '../services/aquagrowApi';
 
 // ─── Local Types ───────────────────────────────────────────────────────────────
 type FinTab =
@@ -162,8 +163,14 @@ const Finance = () => {
   const [payouts, setPayouts] = useState<Payout[]>(PAYOUTS);
   const [refunds, setRefunds] = useState<Refund[]>(REFUNDS);
   const [fraudFlags, setFraudFlags] = useState<FraudFlag[]>(FRAUD_FLAGS);
+  const [liveExpenses, setLiveExpenses] = useState<LiveExpense[]>([]);
+  const [expensesLoading, setExpensesLoading] = useState(true);
 
-  useEffect(() => { setTransactions(storageService.getTransactions()); setStats(storageService.getFinanceStats()); }, []);
+  useEffect(() => {
+    setTransactions(storageService.getTransactions());
+    setStats(storageService.getFinanceStats());
+    fetchExpenses().then(setLiveExpenses).catch(console.error).finally(() => setExpensesLoading(false));
+  }, []);
 
   const totalExpenses = EXPENSES.reduce((s, e) => s + e.amount, 0);
   const totalIncoming = INCOMING.filter(t => t.status === 'completed').reduce((s, t) => s + t.amount, 0);
@@ -670,6 +677,41 @@ const Finance = () => {
                 <p className="text-2xl font-display font-bold text-red-400">₹{amt.toLocaleString()}</p>
               </div>
             ))}
+          </div>
+
+          <div className="glass-panel overflow-hidden">
+            <div className="p-5 border-b border-white/5 flex items-center justify-between">
+              <h3 className="font-bold flex items-center gap-2"><TrendingDown size={14} className="text-red-400" />Farmer Expenses — Live from DB <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">LIVE</span></h3>
+              <span className="text-xs text-zinc-500">{expensesLoading ? 'Loading…' : `${liveExpenses.length} records`}</span>
+            </div>
+            <div className="overflow-x-auto">
+              {expensesLoading ? (
+                <div className="p-8 text-center text-zinc-500">Loading farmer expenses…</div>
+              ) : liveExpenses.length === 0 ? (
+                <div className="p-8 text-center text-zinc-600">No farmer expenses recorded yet.</div>
+              ) : (
+                <table className="w-full text-left">
+                  <thead><tr className="border-b border-white/5 bg-white/5">
+                    {['Farmer','Phone','Pond','Type','Amount','Note','Date'].map(h => (
+                      <th key={h} className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody className="divide-y divide-white/5">
+                    {liveExpenses.map(e => (
+                      <tr key={e._id} className="hover:bg-white/5 transition-colors">
+                        <td className="px-5 py-4 font-bold text-sm">{e.farmer?.name ?? '—'}</td>
+                        <td className="px-5 py-4 text-xs text-zinc-500">{e.farmer?.phoneNumber ?? '—'}</td>
+                        <td className="px-5 py-4 text-xs text-zinc-400">{e.pond?.name ?? '—'}</td>
+                        <td className="px-5 py-4"><span className="text-[10px] font-bold px-2 py-0.5 rounded border bg-white/5 border-white/10 text-zinc-400 capitalize">{e.type}</span></td>
+                        <td className="px-5 py-4 font-mono font-bold text-red-400">₹{e.amount.toLocaleString()}</td>
+                        <td className="px-5 py-4 text-xs text-zinc-500">{e.note ?? '—'}</td>
+                        <td className="px-5 py-4 text-xs text-zinc-500">{e.date ? new Date(e.date).toLocaleDateString() : new Date(e.createdAt).toLocaleDateString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
 
           <div className="glass-panel overflow-hidden">

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Cpu, Wifi, WifiOff, AlertTriangle, Zap, Droplets, Wind, Activity,
@@ -8,6 +8,7 @@ import {
   DollarSign, Tag, Building2, FileText, Camera, Star, ArrowRight,
   AlertCircle, Clock, CheckCircle2, XCircle, Battery, TrendingUp
 } from 'lucide-react';
+import { fetchIoTLogs, LiveAeratorLog } from '../services/aquagrowApi';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -397,6 +398,12 @@ const IoTDevices: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DeviceStatus | 'ALL'>('ALL');
   const [selectedDevice, setSelectedDevice] = useState<IoTDevice | null>(null);
+  const [aeratorLogs, setAeratorLogs] = useState<LiveAeratorLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchIoTLogs().then(setAeratorLogs).catch(console.error).finally(() => setLogsLoading(false));
+  }, []);
 
   const filteredDevices = useMemo(() => devices.filter(d => {
     const q = search.toLowerCase();
@@ -924,6 +931,49 @@ const IoTDevices: React.FC = () => {
               )}
             </motion.div>
           ))}
+        </div>
+
+        {/* Live aerator logs from MongoDB */}
+        <div className="glass-panel overflow-hidden">
+          <div className="p-5 border-b border-white/5 flex items-center justify-between">
+            <h4 className="font-display font-bold flex items-center gap-2">
+              Aerator Logs — Live from App
+              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LIVE</span>
+            </h4>
+            <span className="text-xs text-zinc-500">{logsLoading ? 'Loading…' : `${aeratorLogs.length} records`}</span>
+          </div>
+          <div className="overflow-x-auto">
+            {logsLoading ? (
+              <div className="p-8 text-center text-zinc-500">Loading aerator logs…</div>
+            ) : aeratorLogs.length === 0 ? (
+              <div className="p-8 text-center text-zinc-600">No aerator logs found in database.</div>
+            ) : (
+              <table className="w-full text-left">
+                <thead><tr className="border-b border-white/5 bg-white/5">
+                  {['Farmer','Phone','Pond','Status','Run Hours','Power (kW)','Date'].map(h => (
+                    <th key={h} className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody className="divide-y divide-white/5">
+                  {aeratorLogs.map(log => (
+                    <tr key={log._id} className="hover:bg-white/5 transition-colors">
+                      <td className="px-5 py-4 font-bold text-sm">{log.farmer?.name ?? '—'}</td>
+                      <td className="px-5 py-4 text-xs text-zinc-500">{log.farmer?.phoneNumber ?? '—'}</td>
+                      <td className="px-5 py-4 text-xs text-zinc-400">{log.pond?.name ?? log.pondId?.slice(-6) ?? '—'}</td>
+                      <td className="px-5 py-4">
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${log.status === 'on' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-700/10 text-zinc-500'}`}>
+                          {log.status ?? '—'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 font-mono text-sm text-blue-400">{log.runHours ?? '—'}</td>
+                      <td className="px-5 py-4 font-mono text-sm text-amber-400">{log.powerKw ?? '—'}</td>
+                      <td className="px-5 py-4 text-xs text-zinc-500">{log.createdAt ? new Date(log.createdAt).toLocaleDateString() : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </div>
     );
