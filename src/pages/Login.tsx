@@ -15,11 +15,11 @@ const Login = () => {
   const navigate                    = useNavigate();
   const { login, loading, error }   = useAuth();
 
-  // Check API connectivity
+  // Check API connectivity — any response means server is reachable
   React.useEffect(() => {
     fetch('https://aquagrow.onrender.com/api/health')
-      .then(r => r.ok ? setApiOnline(true) : setApiOnline(false))
-      .catch(() => setApiOnline(false));
+      .then(() => setApiOnline(true))   // server responded (any status) = online
+      .catch(() => setApiOnline(false)); // network error only = offline
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
