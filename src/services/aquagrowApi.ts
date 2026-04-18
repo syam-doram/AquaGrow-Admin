@@ -329,8 +329,9 @@ export interface LiveProvider {
 export const fetchProviders = () => apiFetch<LiveProvider[]>('/admin/providers');
 
 // ═══════════════════════════════════════════════════════════════
-//  SUBSCRIPTIONS
+//  SUBSCRIPTIONS — see fetchSubscriptions() defined below (live from DB)
 // ═══════════════════════════════════════════════════════════════
+/** @deprecated use LiveSubscriptionDetail */
 export interface LiveSubscription {
   _id: string;
   userId: string;
@@ -340,11 +341,110 @@ export interface LiveSubscription {
   endDate?: string;
   features: string[];
 }
-
-export const fetchSubscriptions = () => apiFetch<LiveSubscription[]>('/admin/subscriptions');
+// fetchSubscriptions is declared below with enriched LiveSubscriptionDetail type
 
 // ═══════════════════════════════════════════════════════════════
 //  NOTIFICATIONS
 // ═══════════════════════════════════════════════════════════════
 export const sendAdminNotification = (userId: string, title: string, body: string) =>
   apiFetch('/admin/notify', { method: 'POST', body: JSON.stringify({ userId, title, body }) });
+
+// ═══════════════════════════════════════════════════════════════
+//  SUBSCRIPTIONS (live from DB)
+// ═══════════════════════════════════════════════════════════════
+export interface LiveSubscriptionDetail {
+  _id: string;
+  userId: string;
+  planName: string;
+  status: string;
+  startDate: string;
+  endDate?: string;
+  features: string[];
+  farmer?: { name: string; phoneNumber: string; location?: string; subscriptionStatus?: string } | null;
+}
+export const fetchSubscriptions     = () => apiFetch<LiveSubscriptionDetail[]>('/admin/subscriptions');
+
+// ═══════════════════════════════════════════════════════════════
+//  EXPENSES (live from DB)
+// ═══════════════════════════════════════════════════════════════
+export interface LiveExpense {
+  _id: string;
+  userId: string;
+  pondId?: string;
+  type: string;
+  amount: number;
+  note?: string;
+  date?: string;
+  createdAt: string;
+  farmer?: { name: string; phoneNumber: string } | null;
+  pond?: { name: string } | null;
+}
+export const fetchExpenses = () => apiFetch<LiveExpense[]>('/admin/expenses');
+
+// ═══════════════════════════════════════════════════════════════
+//  FEED LOGS (live from DB)
+// ═══════════════════════════════════════════════════════════════
+export interface LiveFeedLog {
+  _id: string;
+  userId: string;
+  pondId: string;
+  feedType?: string;
+  quantity: number;
+  unit?: string;
+  date?: string;
+  createdAt: string;
+  farmer?: { name: string; phoneNumber: string } | null;
+  pond?: { name: string } | null;
+}
+export const fetchFeedLogs = () => apiFetch<LiveFeedLog[]>('/admin/feed-logs');
+
+// ═══════════════════════════════════════════════════════════════
+//  MEDICINE LOGS (live from DB)
+// ═══════════════════════════════════════════════════════════════
+export interface LiveMedicineLog {
+  _id: string;
+  userId: string;
+  pondId: string;
+  medicineName?: string;
+  dosage?: string;
+  quantity?: number;
+  unit?: string;
+  date?: string;
+  createdAt: string;
+  farmer?: { name: string; phoneNumber: string } | null;
+  pond?: { name: string } | null;
+}
+export const fetchMedicineLogs = () => apiFetch<LiveMedicineLog[]>('/admin/medicine-logs');
+
+// ═══════════════════════════════════════════════════════════════
+//  NOTIFICATIONS (live from DB)
+// ═══════════════════════════════════════════════════════════════
+export interface LiveNotification {
+  _id: string;
+  userId: string;
+  title?: string;
+  body?: string;
+  type?: string;
+  read?: boolean;
+  createdAt: string;
+  farmer?: { name: string; phoneNumber: string; role: string } | null;
+}
+export const fetchAllNotifications = () => apiFetch<LiveNotification[]>('/admin/notifications');
+
+// ═══════════════════════════════════════════════════════════════
+//  IOT / AERATOR LOGS (live from DB)
+// ═══════════════════════════════════════════════════════════════
+export interface LiveAeratorLog {
+  _id: string;
+  userId: string;
+  pondId?: string;
+  aeratorId?: string;
+  status?: string;
+  runHours?: number;
+  powerKw?: number;
+  date?: string;
+  createdAt: string;
+  farmer?: { name: string; phoneNumber: string } | null;
+  pond?: { name: string } | null;
+}
+export const fetchIoTLogs = () => apiFetch<LiveAeratorLog[]>('/admin/iot');
