@@ -8,10 +8,10 @@
  * All admin routes require: Authorization: Bearer <token> with role=admin
  */
 
-// In dev, VITE_API_BASE_URL points to local Express (port 3005) via Vite proxy.
-// In production (Render), falls back to the live backend URL below.
+// In dev: VITE_API_BASE_URL=http://localhost:3005/api (set in .env)
+// In production: falls back to the Render-hosted Express backend below.
 export const BASE_URL: string =
-  (import.meta as any).env?.VITE_API_BASE_URL ?? 'https://aquagrow-admin.onrender.com/api';
+  (import.meta as any).env?.VITE_API_BASE_URL ?? 'https://aquagrow.onrender.com/api';
 
 // ═══════════════════════════════════════════════════════════════
 //  TOKEN MANAGEMENT
