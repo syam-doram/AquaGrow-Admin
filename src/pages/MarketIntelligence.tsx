@@ -326,7 +326,7 @@ const MarketIntelligence = () => {
               </div>
             </div>
             <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <LineChart data={PRICE_TREND_DATA}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                   <XAxis dataKey="week" stroke="#ffffff30" fontSize={11} tickLine={false} axisLine={false} dy={8} />
@@ -395,7 +395,7 @@ const MarketIntelligence = () => {
           <div className="glass-panel p-6">
             <h3 className="text-lg font-display font-bold mb-6 flex items-center gap-2"><Activity size={16} className="text-emerald-400" />Monthly Demand vs Supply</h3>
             <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <AreaChart data={DEMAND_SUPPLY_DATA}>
                   <defs>
                     <linearGradient id="gDemand" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
@@ -434,7 +434,7 @@ const MarketIntelligence = () => {
           <div className="glass-panel p-6">
             <h3 className="text-lg font-display font-bold mb-6 flex items-center gap-2"><Layers size={16} className="text-purple-400" />Price & Demand by Shrimp Count (Size)</h3>
             <div className="h-[260px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={SIZE_DATA} barSize={28}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                   <XAxis dataKey="count" stroke="#ffffff30" fontSize={11} tickLine={false} axisLine={false} dy={8} tickFormatter={v => `C${v}`} />
@@ -755,7 +755,7 @@ const MarketIntelligence = () => {
           <div className="glass-panel p-6">
             <h3 className="text-lg font-display font-bold mb-5 flex items-center gap-2"><BarChart3 size={16} className="text-emerald-400" />Revenue Impact by Size</h3>
             <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={SIZE_DATA.map(d => ({ ...d, revenue: d.price * d.supplyKg }))} barSize={32}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                   <XAxis dataKey="count" stroke="#ffffff30" fontSize={11} tickLine={false} axisLine={false} dy={8} tickFormatter={v => `C${v}`} />

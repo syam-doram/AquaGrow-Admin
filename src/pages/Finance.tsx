@@ -251,7 +251,7 @@ const Finance = () => {
           <div className="glass-panel p-6">
             <h3 className="text-lg font-display font-bold mb-6 flex items-center gap-2"><TrendingUp size={16} className="text-emerald-400" />Monthly Revenue vs Expenses vs Profit</h3>
             <div className="h-[260px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={MONTHLY_TREND} barSize={24} barGap={4}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                   <XAxis dataKey="month" stroke="#ffffff30" fontSize={11} tickLine={false} axisLine={false} dy={8} />
@@ -761,7 +761,7 @@ const Finance = () => {
           <div className="glass-panel p-6">
             <h3 className="font-bold mb-5">6-Month Financial Trend</h3>
             <div className="h-[240px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <LineChart data={MONTHLY_TREND}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                   <XAxis dataKey="month" stroke="#ffffff30" fontSize={11} tickLine={false} axisLine={false} dy={8} />

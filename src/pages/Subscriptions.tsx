@@ -725,7 +725,7 @@ const Subscriptions = () => {
           <div className="glass-panel p-6">
             <h3 className="font-bold mb-5 flex items-center gap-2"><TrendingUp size={14} className="text-emerald-400" />Monthly Recurring Revenue (MRR)</h3>
             <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <AreaChart data={MRR_DATA}>
                   <defs><linearGradient id="mrrGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient></defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
@@ -783,7 +783,7 @@ const Subscriptions = () => {
               <h3 className="font-bold mb-5">Plan Distribution</h3>
               <div className="flex items-center gap-6">
                 <div className="h-44 w-44 shrink-0">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <RPieChart>
                       <Pie data={planDist.filter(d => d.value > 0)} cx="50%" cy="50%" innerRadius={50} outerRadius={72} paddingAngle={4} dataKey="value">
                         {planDist.map((d, i) => <Cell key={i} fill={d.color} stroke="none" />)}
