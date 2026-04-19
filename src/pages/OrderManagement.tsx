@@ -54,6 +54,27 @@ const CAT_COLOR: Record<ProductCategory, string> = {
 
 const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
+// ─── Step Ownership Map ───────────────────────────────────────────────────────
+// Maps each order status → the team member responsible at that stage
+const STEP_OWNER: Record<OrderStatus, { name: string; role: string; color: string }> = {
+  PENDING:   { name: 'Meena Kumari',  role: 'Order Executive',       color: 'text-zinc-400 bg-zinc-500/10 border-zinc-500/20' },
+  CONFIRMED: { name: 'Kiran Reddy',   role: 'Ops Manager',           color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
+  PACKED:    { name: 'Satish Goud',   role: 'Warehouse Manager',     color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
+  SHIPPED:   { name: 'Srinivas Rao',  role: 'Logistics Coordinator', color: 'text-teal-400 bg-teal-500/10 border-teal-500/20' },
+  DELIVERED: { name: 'Ramesh Dora',   role: 'Delivery Agent',        color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
+  CANCELLED: { name: 'Kiran Reddy',   role: 'Ops Manager',           color: 'text-red-400 bg-red-500/10 border-red-500/20' },
+  RETURNED:  { name: 'Divya Sri',     role: 'Support Executive',     color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
+};
+
+const OwnerChip = ({ status }: { status: OrderStatus }) => {
+  const o = STEP_OWNER[status];
+  return (
+    <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${o.color}`}>
+      <User size={8} /> {o.name}
+    </span>
+  );
+};
+
 // ─── Sub-components ──────────────────────────────────────────────────────────
 const StatusBadge = ({ s }: { s: OrderStatus }) => (
   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_COLOR[s]}`}>{s}</span>
@@ -411,6 +432,73 @@ const OrderManagement = () => {
             </div>
           </div>
 
+          {/* Team Assignments — who owns each stage */}
+          <div className="glass-panel p-6 border border-white/5">
+            <h3 className="text-lg font-display font-bold mb-5 flex items-center gap-2">
+              <User size={16} className="text-emerald-400" />
+              Team Order Ownership — Stage-by-Stage
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {[
+                {
+                  team: '🧠 Operations Team',
+                  accent: 'border-red-500/20 bg-red-500/5',
+                  badge: 'text-red-400 bg-red-500/10 border-red-500/20',
+                  stages: [
+                    { status: 'PENDING' as OrderStatus,   member: 'Meena Kumari',  role: 'Order Executive',   task: 'Verify & confirm incoming orders' },
+                    { status: 'CONFIRMED' as OrderStatus, member: 'Kiran Reddy',   role: 'Ops Manager',       task: 'Approve & coordinate dispatch' },
+                  ],
+                },
+                {
+                  team: '📦 Warehouse Team',
+                  accent: 'border-amber-500/20 bg-amber-500/5',
+                  badge: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+                  stages: [
+                    { status: 'PACKED' as OrderStatus, member: 'Satish Goud',  role: 'Warehouse Manager', task: 'Oversee packing & batch check' },
+                    { status: 'PACKED' as OrderStatus, member: 'Balu Naidu',   role: 'Picker / Packer',   task: 'Pick items, verify batch, pack' },
+                  ],
+                },
+                {
+                  team: '🚚 Logistics Team',
+                  accent: 'border-teal-500/20 bg-teal-500/5',
+                  badge: 'text-teal-400 bg-teal-500/10 border-teal-500/20',
+                  stages: [
+                    { status: 'SHIPPED' as OrderStatus,   member: 'Srinivas Rao', role: 'Delivery Coordinator', task: 'Route plan & assign agent' },
+                    { status: 'DELIVERED' as OrderStatus, member: 'Ramesh Dora',  role: 'Delivery Agent',       task: 'Last-mile delivery & COD' },
+                  ],
+                },
+                {
+                  team: '📞 Customer Support',
+                  accent: 'border-green-500/20 bg-green-500/5',
+                  badge: 'text-green-400 bg-green-500/10 border-green-500/20',
+                  stages: [
+                    { status: 'RETURNED' as OrderStatus, member: 'Divya Sri',    role: 'Support Executive', task: 'Handle returns & refund requests' },
+                    { status: 'CANCELLED' as OrderStatus, member: 'Kiran Reddy', role: 'Ops Manager',       task: 'Cancel, notify & reroute stock' },
+                  ],
+                },
+              ].map(({ team, accent, badge, stages }) => (
+                <div key={team} className={`p-4 rounded-2xl border ${accent}`}>
+                  <p className="text-xs font-bold text-zinc-300 mb-3">{team}</p>
+                  <div className="space-y-2">
+                    {stages.map((s, i) => {
+                      const count = orders.filter(o => o.status === s.status).length;
+                      return (
+                        <div key={i} className="flex items-start gap-3 p-2.5 rounded-xl bg-white/5">
+                          <div className={`flex items-center justify-center w-7 h-7 rounded-lg text-[10px] font-bold shrink-0 border ${badge}`}>{count}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-zinc-200 truncate">{s.member}</p>
+                            <p className="text-[9px] text-zinc-500">{s.role}</p>
+                            <p className="text-[9px] text-zinc-600 italic mt-0.5 truncate">{s.task}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Recent notifications */}
           <div className="glass-panel p-6">
             <h3 className="text-lg font-display font-bold mb-4 flex items-center gap-2"><Bell size={16} className="text-emerald-400" />Recent Order Notifications</h3>
@@ -457,7 +545,7 @@ const OrderManagement = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead><tr className="border-b border-white/5 bg-white/5">
-                  {['Order', 'Farmer', 'Products', 'Amount', 'Payment', 'Status', 'Date', 'Actions'].map(h => (
+                  {['Order', 'Farmer', 'Products', 'Amount', 'Payment', 'Status & Owner', 'Date', 'Actions'].map(h => (
                     <th key={h} className="px-5 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr></thead>
@@ -484,7 +572,12 @@ const OrderManagement = () => {
                         </td>
                         <td className="px-5 py-4"><p className="font-mono font-bold text-sm">{fmt(o.finalAmount)}</p><p className="text-[10px] text-zinc-500">{o.paymentMethod}</p></td>
                         <td className="px-5 py-4"><PayBadge s={o.paymentStatus} /></td>
-                        <td className="px-5 py-4"><StatusBadge s={o.status} /></td>
+                        <td className="px-5 py-4">
+                          <div className="flex flex-col gap-1">
+                            <StatusBadge s={o.status} />
+                            <OwnerChip status={o.status} />
+                          </div>
+                        </td>
                         <td className="px-5 py-4 text-xs text-zinc-400">{o.createdAt}</td>
                         <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
@@ -532,7 +625,8 @@ const OrderManagement = () => {
                             <PayBadge s={o.paymentStatus} />
                           </div>
                           <p className="font-bold text-sm mb-1">{o.farmerName}</p>
-                          <p className="text-xs text-zinc-500 mb-2">{o.items[0]?.productName}{o.items.length > 1 ? ` +${o.items.length-1}` : ''}</p>
+                          <p className="text-xs text-zinc-500 mb-1.5">{o.items[0]?.productName}{o.items.length > 1 ? ` +${o.items.length-1}` : ''}</p>
+                          <div className="mb-2"><OwnerChip status={o.status} /></div>
                           <p className="font-mono font-bold text-emerald-400 text-sm mb-3">{fmt(o.finalAmount)}</p>
                           {next && (
                             <button onClick={e => { e.stopPropagation(); advanceStatus(o); }}
@@ -563,10 +657,14 @@ const OrderManagement = () => {
             orders.filter(o => o.status === 'CONFIRMED' || o.status === 'PACKED').map(o => (
               <div key={o.id} className="glass-panel p-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 flex-wrap">
                     <StatusBadge s={o.status} />
                     <span className="font-mono text-sm text-emerald-400">{o.id}</span>
                     <span className="font-bold">{o.farmerName}</span>
+                    {/* Step ownership */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-amber-500/20 bg-amber-500/5 text-[10px] font-bold text-amber-400">
+                      <User size={10} /> {o.status === 'CONFIRMED' ? 'Pack: Satish Goud (WH Mgr) + Balu Naidu (Packer)' : 'Dispatch: Srinivas Rao (Logistics Coord)'}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Generate Invoice (simulated) */}

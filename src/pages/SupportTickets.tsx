@@ -419,18 +419,87 @@ const SupportTickets = () => {
 
                         {/* Assignment */}
                         <section>
-                          <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4">Assignment</h4>
+                          <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4">Assign To Team</h4>
+                          <div className="space-y-3">
+                            {/* Support Team */}
+                            <div>
+                              <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5 px-1">📞 Customer Support</p>
+                              <div className="space-y-1.5">
+                                {[
+                                  { name: 'Divya Sri',      role: 'Support Executive',  desc: 'Product & billing queries',  agentId: 'AGT-D1', agentRole: 'SUPPORT' as const },
+                                  { name: 'Priya Lakshmi', role: 'Support Associate',   desc: 'Returns & order complaints', agentId: 'AGT-P1', agentRole: 'SUPPORT' as const },
+                                ].map(a => (
+                                  <button key={a.name} onClick={() => { storageService.assignTicket(selectedTicket.id, { id: a.agentId, name: a.name, role: a.agentRole }); loadData(); const updated = storageService.getTickets().find(t => t.id === selectedTicket.id); if (updated) setSelectedTicket(updated); }}
+                                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selectedTicket.assignedTo?.name === a.name ? 'bg-green-500/10 border-green-500/50 text-green-400' : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/20'}`}>
+                                    <UserCheck size={14} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-bold truncate">{a.name}</p>
+                                      <p className="text-[9px] text-zinc-500">{a.role} · {a.desc}</p>
+                                    </div>
+                                    {selectedTicket.assignedTo?.name === a.name && <CheckCircle2 size={12} className="text-green-400 shrink-0" />}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            {/* Tech Team */}
+                            <div>
+                              <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5 px-1">🔬 Tech / Aquaculture</p>
+                              <div className="space-y-1.5">
+                                {[
+                                  { name: 'Dr. Gopi Raju', role: 'Aquaculture Expert', desc: 'Pond disease, water quality', agentId: 'AGT-G1', agentRole: 'TECH' as const },
+                                  { name: 'Arjun Naik',    role: 'IoT Engineer',       desc: 'Sensor & device issues',     agentId: 'AGT-A1', agentRole: 'TECH' as const },
+                                ].map(a => (
+                                  <button key={a.name} onClick={() => { storageService.assignTicket(selectedTicket.id, { id: a.agentId, name: a.name, role: a.agentRole }); loadData(); const updated = storageService.getTickets().find(t => t.id === selectedTicket.id); if (updated) setSelectedTicket(updated); }}
+                                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selectedTicket.assignedTo?.name === a.name ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/20'}`}>
+                                    <UserCheck size={14} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-bold truncate">{a.name}</p>
+                                      <p className="text-[9px] text-zinc-500">{a.role} · {a.desc}</p>
+                                    </div>
+                                    {selectedTicket.assignedTo?.name === a.name && <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            {/* Operations / Escalation */}
+                            <div>
+                              <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5 px-1">🧠 Operations (Escalation)</p>
+                              <div className="space-y-1.5">
+                                {[
+                                  { name: 'Kiran Reddy', role: 'Ops Manager', desc: 'Order disputes & escalations', agentId: 'AGT-K1', agentRole: 'SUPPORT' as const },
+                                ].map(a => (
+                                  <button key={a.name} onClick={() => { storageService.assignTicket(selectedTicket.id, { id: a.agentId, name: a.name, role: a.agentRole }); loadData(); const updated = storageService.getTickets().find(t => t.id === selectedTicket.id); if (updated) setSelectedTicket(updated); }}
+                                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selectedTicket.assignedTo?.name === a.name ? 'bg-red-500/10 border-red-500/50 text-red-400' : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/20'}`}>
+                                    <UserCheck size={14} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-bold truncate">{a.name}</p>
+                                      <p className="text-[9px] text-zinc-500">{a.role} · {a.desc}</p>
+                                    </div>
+                                    {selectedTicket.assignedTo?.name === a.name && <CheckCircle2 size={12} className="text-red-400 shrink-0" />}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </section>
+
+                        {/* Escalation Matrix */}
+                        <section>
+                          <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Escalation Path</h4>
                           <div className="space-y-2">
-                            <button onClick={() => handleAssign('SUPPORT')}
-                              className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selectedTicket.assignedTo?.role === 'SUPPORT' ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500' : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/20'}`}>
-                              <UserCheck size={16} />
-                              <span className="text-xs font-bold uppercase tracking-tight">Support Team</span>
-                            </button>
-                            <button onClick={() => handleAssign('TECH')}
-                              className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selectedTicket.assignedTo?.role === 'TECH' ? 'bg-blue-500/10 border-blue-500/50 text-blue-400' : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/20'}`}>
-                              <Settings size={16} />
-                              <span className="text-xs font-bold uppercase tracking-tight">Technical Squad</span>
-                            </button>
+                            {[
+                              { level: 'L1', name: 'Divya Sri', role: 'Support Executive', color: 'border-green-500/20 bg-green-500/5 text-green-400', desc: 'First response — product & usage queries' },
+                              { level: 'L2', name: 'Kiran Reddy', role: 'Ops Manager', color: 'border-amber-500/20 bg-amber-500/5 text-amber-400', desc: 'Order disputes, delays, escalations' },
+                              { level: 'L3', name: 'Founder (You)', role: 'AquaGrow Admin', color: 'border-red-500/20 bg-red-500/5 text-red-400', desc: 'Critical issues only — unresolved complaints' },
+                            ].map(e => (
+                              <div key={e.level} className={`flex items-start gap-3 p-2.5 rounded-xl border ${e.color}`}>
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${e.color} border shrink-0 mt-0.5`}>{e.level}</span>
+                                <div>
+                                  <p className="text-[10px] font-bold">{e.name}</p>
+                                  <p className="text-[9px] text-zinc-500">{e.role} · {e.desc}</p>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </section>
 

@@ -132,10 +132,10 @@ const SEED_BATCHES: ProcurementBatch[] = [
 ];
 
 const SEED_PACKING: PackingJob[] = [
-  { id: 'PK001', orderId: 'SHO-112', farmerName: 'Govind Rao', items: [{ product: 'AquaGrow Pro Feed 2mm', qty: 50, unit: 'kg', batchNo: 'VGA-2604-A1' }, { product: 'AquaProbiotic Plus', qty: 2, unit: 'kg', batchNo: 'BSI-PRO-0318' }], status: 'PACKED', assignedTo: 'Suresh (Warehouse)', createdAt: '2026-04-18', packedAt: '2026-04-18' },
-  { id: 'PK002', orderId: 'SHO-113', farmerName: 'Krishnamurthy', items: [{ product: 'WhiteSpot Shield Medicine', qty: 5, unit: 'litre', batchNo: 'BSI-MED-0326' }], status: 'IN_PROGRESS', assignedTo: 'Ravi (Warehouse)', createdAt: '2026-04-18' },
-  { id: 'PK003', orderId: 'SHO-114', farmerName: 'Venkatesh Naidu', items: [{ product: 'AquaGrow Grower Feed 3mm', qty: 100, unit: 'kg', batchNo: 'VGA-2604-B2' }, { product: 'Calcium Mineral Mix', qty: 5, unit: 'kg', batchNo: 'AVP-MIN-0402' }], status: 'PENDING', assignedTo: 'Suresh (Warehouse)', createdAt: '2026-04-18' },
-  { id: 'PK004', orderId: 'SHO-110', farmerName: 'Raju Babu', items: [{ product: 'EcoPond Disinfectant', qty: 10, unit: 'litre', batchNo: 'CA-DIS-0415' }], status: 'DISPATCHED', assignedTo: 'Ravi (Warehouse)', createdAt: '2026-04-17', packedAt: '2026-04-17' },
+  { id: 'PK001', orderId: 'SHO-112', farmerName: 'Govind Rao', items: [{ product: 'AquaGrow Pro Feed 2mm', qty: 50, unit: 'kg', batchNo: 'VGA-2604-A1' }, { product: 'AquaProbiotic Plus', qty: 2, unit: 'kg', batchNo: 'BSI-PRO-0318' }], status: 'PACKED',       assignedTo: 'Balu Naidu (Picker/Packer)',  createdAt: '2026-04-18', packedAt: '2026-04-18' },
+  { id: 'PK002', orderId: 'SHO-113', farmerName: 'Krishnamurthy',    items: [{ product: 'WhiteSpot Shield Medicine', qty: 5, unit: 'litre', batchNo: 'BSI-MED-0326' }],                                                                                                status: 'IN_PROGRESS', assignedTo: 'Balu Naidu (Picker/Packer)',  createdAt: '2026-04-18' },
+  { id: 'PK003', orderId: 'SHO-114', farmerName: 'Venkatesh Naidu', items: [{ product: 'AquaGrow Grower Feed 3mm', qty: 100, unit: 'kg', batchNo: 'VGA-2604-B2' }, { product: 'Calcium Mineral Mix', qty: 5, unit: 'kg', batchNo: 'AVP-MIN-0402' }],                status: 'PENDING',     assignedTo: 'Balu Naidu (Picker/Packer)',  createdAt: '2026-04-18' },
+  { id: 'PK004', orderId: 'SHO-110', farmerName: 'Raju Babu',       items: [{ product: 'EcoPond Disinfectant', qty: 10, unit: 'litre', batchNo: 'CA-DIS-0415' }],                                                                                                    status: 'DISPATCHED',  assignedTo: 'Rupa Devi (Inventory Ctrl)', createdAt: '2026-04-17', packedAt: '2026-04-17' },
 ];
 
 const SEED_USAGE: UsageRecord[] = [
@@ -530,7 +530,12 @@ const ProductsManagement = () => {
           <div className="glass-panel overflow-hidden">
             <div className="p-5 border-b border-white/5 flex items-center justify-between">
               <h3 className="text-xl font-display font-bold">Stock Levels</h3>
-              <p className="text-xs text-zinc-500">Click quantity to edit inline</p>
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-zinc-500">Click quantity to edit inline</p>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/20 bg-amber-500/5 text-[10px] font-bold text-amber-400">
+                  <span>📦</span> Owner: Satish Goud (WH Mgr) · Rupa Devi (Inventory Ctrl)
+                </div>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -1204,6 +1209,71 @@ const ProductsManagement = () => {
           <div className="glass-panel p-4 border border-purple-500/10 bg-purple-500/3">
             <p className="text-xs text-zinc-400"><span className="text-purple-400 font-bold">Packing Management</span> — Pick correct items per order, verify batch numbers, confirm pack before dispatch. Prevents wrong deliveries.</p>
           </div>
+
+          {/* ── Warehouse Team Assignment ─────────────────────────────────── */}
+          <div className="glass-panel p-5 border border-amber-500/10">
+            <h3 className="text-sm font-bold text-zinc-300 mb-4 flex items-center gap-2">
+              <span>📦</span> Warehouse Team — Task Ownership
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                {
+                  name: 'Satish Goud',
+                  role: 'Warehouse Manager',
+                  emoji: '🏭',
+                  color: 'border-amber-500/20 bg-amber-500/5 text-amber-400',
+                  tasks: ['Supervise all packing jobs', 'Approve batch usage', 'Coordinate dispatch with Logistics'],
+                  jobCount: SEED_PACKING.filter(p => p.status === 'PENDING' || p.status === 'IN_PROGRESS').length,
+                  jobLabel: 'Active Jobs',
+                },
+                {
+                  name: 'Balu Naidu',
+                  role: 'Picker / Packer',
+                  emoji: '🫙',
+                  color: 'border-blue-500/20 bg-blue-500/5 text-blue-400',
+                  tasks: ['Pick items from shelves', 'Verify batch numbers', 'Seal & label packages'],
+                  jobCount: SEED_PACKING.filter(p => p.assignedTo.includes('Balu')).length,
+                  jobLabel: 'Assigned to Balu',
+                },
+                {
+                  name: 'Rupa Devi',
+                  role: 'Inventory Controller',
+                  emoji: '📊',
+                  color: 'border-purple-500/20 bg-purple-500/5 text-purple-400',
+                  tasks: ['Update stock after packing', 'Flag expiry/low stock', 'Procurement requests'],
+                  jobCount: SEED_PACKING.filter(p => p.assignedTo.includes('Rupa')).length,
+                  jobLabel: 'Assigned to Rupa',
+                },
+                {
+                  name: 'Suresh Babu',
+                  role: 'QC Inspector',
+                  emoji: '✅',
+                  color: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400',
+                  tasks: ['Quality check before seal', 'Verify weight & quantity', 'Sign off on PACKED status'],
+                  jobCount: SEED_PACKING.filter(p => p.status === 'PACKED').length,
+                  jobLabel: 'QC Cleared',
+                },
+              ].map(({ name, role, emoji, color, tasks, jobCount, jobLabel }) => (
+                <div key={name} className={`p-4 rounded-2xl border ${color.split(' ').slice(0,2).join(' ')}`}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <p className="text-xs font-bold text-zinc-200">{emoji} {name}</p>
+                      <p className="text-[9px] text-zinc-500 mt-0.5">{role}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${color}`}>{jobCount} {jobLabel}</span>
+                  </div>
+                  <ul className="space-y-1">
+                    {tasks.map(t => (
+                      <li key={t} className="text-[9px] text-zinc-500 flex items-start gap-1.5">
+                        <span className="text-zinc-700 mt-0.5 shrink-0">›</span>{t}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'Pending Pack', value: SEED_PACKING.filter(p => p.status === 'PENDING').length, color: 'text-amber-400' },
