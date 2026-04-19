@@ -534,6 +534,13 @@ export interface Coupon {
 export type ProductCategory = 'Feed' | 'Medicine' | 'Aerator' | 'IoT Device' | 'Equipment' | 'Chemical';
 export type ProductStatus = 'active' | 'inactive' | 'out_of_stock' | 'discontinued';
 
+export interface ProductUsageSchedule {
+  docFrom: number;    // Day Of Culture — start
+  docTo: number;      // Day Of Culture — end
+  dose: string;       // e.g. "2 kg/acre"
+  frequency: string;  // e.g. "Daily", "Weekly", "Once"
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -558,9 +565,23 @@ export interface Product {
   reviewCount: number;
   soldCount: number;
   imageUrl?: string;
-  speciesTarget?: string; // e.g. "L. Vannamei"
+  imageUrls?: string[];           // multiple product images
+  speciesTarget?: string;         // e.g. "L. Vannamei"
   createdAt: string;
   updatedAt: string;
+  // Compliance & Traceability
+  expiryDate?: string;            // for medicines & biologicals
+  batchNumber?: string;           // lot/batch number for traceability
+  certifications?: string[];      // e.g. ["ISO", "FSSAI", "Drugs License"]
+  certificationUrls?: string[];   // uploaded certificate doc URLs
+  isRegulatoryApproved?: boolean; // admin must approve before product goes live
+  regulatoryApprovedBy?: string;
+  regulatoryApprovedAt?: string;
+  maxDosePerAcre?: string;        // overdose warning threshold
+  // Usage schedule by DOC (day of culture)
+  usageSchedule?: ProductUsageSchedule[];
+  // Farmer-tier pricing flag
+  premiumFarmerDiscount?: number; // extra % off for subscribed farmers
 }
 
 // ─── Supplier / Vendor ────────────────────────────────────────────────────────
@@ -577,6 +598,24 @@ export interface Supplier {
   status: 'active' | 'inactive' | 'suspended';
   paymentTerms: string; // e.g. "Net 30"
   createdAt: string;
+  // KYC & Compliance
+  gstNumber?: string;
+  panNumber?: string;
+  licenseNumber?: string;       // drugs/FSSAI/trade license
+  licenseType?: string;         // e.g. "Drug License", "FSSAI"
+  kycStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  kycApprovedBy?: string;
+  kycApprovedAt?: string;
+  kycRejectionReason?: string;
+  // Bank details for payouts
+  bankAccount?: string;
+  bankIfsc?: string;
+  bankName?: string;
+  // Supplier management
+  onboardingDate?: string;
+  approvedProductIds?: string[];
+  marginPercent?: number;       // AquaGrow margin on this supplier's products
+  notes?: string;
 }
 
 // ─── Product Order (Shop Order) ───────────────────────────────────────────────
@@ -710,3 +749,92 @@ export interface EmployeeTraining {
   certificateUrl?: string;
 }
 
+// ─── Warehouse ────────────────────────────────────────────────────────────────
+export interface Warehouse {
+  id: string;
+  name: string;
+  location: string;
+  address?: string;
+  managerId?: string;
+  managerName?: string;
+  phone?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface StockMovement {
+  id: string;
+  productId: string;
+  productName: string;
+  warehouseId: string;
+  warehouseName: string;
+  type: 'STOCK_IN' | 'STOCK_OUT' | 'ADJUSTMENT' | 'TRANSFER';
+  quantity: number;
+  unit: string;
+  reason: string;
+  referenceId?: string;   // order ID, procurement ID, etc.
+  batchNumber?: string;
+  performedBy: string;
+  createdAt: string;
+}
+
+// ─── Delivery Partner ─────────────────────────────────────────────────────────
+export interface DeliveryPartner {
+  id: string;
+  name: string;
+  type: 'COURIER' | 'LOCAL_TRANSPORT' | 'OWN_FLEET';
+  contactPerson: string;
+  phone: string;
+  email?: string;
+  regions: string[];
+  rating: number;
+  deliveryChargePerKm?: number;
+  minCharge?: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+// ─── Product Pricing Rule ─────────────────────────────────────────────────────
+export interface ProductPricingRule {
+  id: string;
+  productId: string;
+  productName: string;
+  ruleType: 'SUBSCRIPTION_TIER' | 'BULK_QTY' | 'REGION' | 'SEASONAL';
+  condition: string;        // e.g. "GOLD_PLAN" | "qty>=50" | "Nellore"
+  discountPercent: number;
+  validFrom?: string;
+  validUntil?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+// ─── GST Invoice ──────────────────────────────────────────────────────────────
+export interface InvoiceLineItem {
+  description: string;
+  quantity: number;
+  unit: string;
+  rate: number;
+  gstRate: number;          // e.g. 5, 12, 18
+  gstAmount: number;
+  totalAmount: number;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;    // e.g. "INV-2026-0042"
+  orderId: string;
+  farmerId: string;
+  farmerName: string;
+  farmerAddress?: string;
+  farmerGst?: string;
+  supplierId?: string;
+  supplierName?: string;
+  lineItems: InvoiceLineItem[];
+  subtotal: number;
+  totalGst: number;
+  totalAmount: number;
+  status: 'DRAFT' | 'ISSUED' | 'PAID' | 'CANCELLED';
+  issuedAt: string;
+  dueDate?: string;
+  notes?: string;
+}

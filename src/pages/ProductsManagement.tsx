@@ -10,6 +10,47 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Supplier, ShopOrder, ProductReview, ProductCategory } from '../types';
 import { storageService } from '../services/storageService';
+import { fetchAllOrders, updateShopOrderStatus as apiUpdateStatus, type LiveShopOrder } from '../services/aquagrowApi';
+
+// ─── Normalize live DB order → ShopOrder shape ───────────────────────────────
+const DB_STATUS_MAP: Record<string, ShopOrder['status']> = {
+  assigned: 'PENDING', confirmed: 'CONFIRMED', shipped: 'SHIPPED',
+  delivered: 'DELIVERED', cancelled: 'CANCELLED',
+};
+const ADMIN_TO_API: Record<string, string> = {
+  CONFIRMED: 'confirmed', PACKED: 'confirmed', SHIPPED: 'shipped',
+  DELIVERED: 'delivered', CANCELLED: 'cancelled',
+};
+function normalizeLiveOrder(o: LiveShopOrder): ShopOrder {
+  const items = (o.items || []).map((it: any, i: number) => ({
+    productId: it.productId || `prod-${i}`,
+    productName: it.productName || it.name || 'Unknown',
+    category: (it.category as ProductCategory) || 'Feed',
+    quantity: it.qty ?? it.quantity ?? 1,
+    unit: it.unit || 'kg',
+    pricePerUnit: it.unitPrice ?? it.price ?? 0,
+    totalPrice: it.subtotal ?? (it.qty ?? 1) * (it.unitPrice ?? 0),
+  }));
+  return {
+    id: `DB-${o._id.slice(-8).toUpperCase()}`,
+    _dbId: o._id,
+    farmerId: o.farmerId,
+    farmerName: o.farmerName || 'Farmer',
+    farmerPhone: o.farmerPhone || '',
+    deliveryAddress: o.address || 'See farmer profile',
+    deliveryCharge: 0,
+    items,
+    totalAmount: o.totalAmount ?? 0,
+    discountAmount: 0,
+    finalAmount: o.totalAmount ?? 0,
+    paymentMethod: 'COD' as const,
+    paymentStatus: 'PENDING' as const,
+    status: DB_STATUS_MAP[o.status] ?? 'PENDING',
+    createdAt: o.createdAt?.split('T')[0] ?? new Date().toISOString().split('T')[0],
+    updatedAt: o.updatedAt ?? o.createdAt ?? new Date().toISOString(),
+    source: 'DB_LIVE',
+  } as unknown as ShopOrder & { _dbId: string; source: string };
+}
 
 // ─── Feed & Medicine Lifecycle Types ─────────────────────────────────────────
 interface ProcurementBatch {
@@ -187,6 +228,8 @@ const ProductsManagement = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [shopOrders, setShopOrders] = useState<ShopOrder[]>([]);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [ordersStatus, setOrdersStatus] = useState<'loading' | 'online' | 'offline'>('loading');
+  const [lastSync, setLastSync] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCat, setFilterCat] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -195,18 +238,14 @@ const ProductsManagement = () => {
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [editStockId, setEditStockId] = useState<string | null>(null);
   const [editStockQty, setEditStockQty] = useState(0);
-  // Offers state
+  // Offers state (local — no backend endpoint)
   const [offers, setOffers] = useState([
     { id: 'OFF-001', name: 'Feed + Medicine Combo', type: 'Bundle', discount: 15, products: ['AquaGrow Pro Feed 2mm', 'WhiteSpot Shield Medicine'], validUntil: '2026-05-31', active: true },
     { id: 'OFF-002', name: 'Monsoon Season Sale', type: 'Seasonal', discount: 20, products: ['All Feed Products'], validUntil: '2026-06-30', active: true },
     { id: 'OFF-003', name: 'IoT Device Launch', type: 'Launch', discount: 10, products: ['SmartDO Sensor v2'], validUntil: '2026-04-30', active: false },
   ]);
-  // Returns state
-  const [returns, setReturns] = useState<ReturnEntry[]>([
-    { id: 'RET-001', orderId: 'SHO-002', farmerId: 'F-102', farmerName: 'Jane Smith', product: 'WhiteSpot Shield Medicine', reason: 'Product damaged in transit', status: 'PENDING', type: 'RETURN', requestedAt: '2026-04-16', resolution: '' },
-    { id: 'RET-002', orderId: 'SHO-001', farmerId: 'F-101', farmerName: 'John Doe', product: 'OxyBoost Aerator 1HP', reason: 'Device not turning on. Possible manufacturing defect.', status: 'INVESTIGATING', type: 'WARRANTY', requestedAt: '2026-04-15', resolution: '' },
-    { id: 'RET-003', orderId: 'SHO-003', farmerId: 'F-103', farmerName: 'Mike Ross', product: 'SmartDO Sensor v2', reason: 'Calibration issue, reading incorrect values.', status: 'RESOLVED', type: 'WARRANTY', requestedAt: '2026-04-10', resolution: 'Replacement unit dispatched on 2026-04-13.' },
-  ]);
+  // Returns state (local — no backend endpoint)
+  const [returns, setReturns] = useState<ReturnEntry[]>([]);
 
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     category: 'Feed', status: 'active', mrp: 0, sellingPrice: 0, discount: 0,
@@ -216,13 +255,34 @@ const ProductsManagement = () => {
     categories: ['Feed'], status: 'active', performanceScore: 80, totalProducts: 0, paymentTerms: 'Net 30',
   });
 
-  useEffect(() => { loadData(); }, []);
-  const loadData = () => {
+  // Load catalog/suppliers/reviews from localStorage (no backend endpoint yet)
+  const loadLocal = () => {
     setProducts(storageService.getProducts());
     setSuppliers(storageService.getSuppliers());
-    setShopOrders(storageService.getShopOrders());
     setReviews(storageService.getReviews());
   };
+
+  // Fetch live orders from backend
+  const loadOrders = async () => {
+    setOrdersStatus('loading');
+    try {
+      const raw = await fetchAllOrders();
+      setShopOrders(raw.map(normalizeLiveOrder));
+      setOrdersStatus('online');
+      setLastSync(new Date().toLocaleTimeString());
+    } catch {
+      setOrdersStatus('offline');
+      // fallback: keep whatever was loaded before
+    }
+  };
+
+  useEffect(() => { loadLocal(); loadOrders(); }, []);
+
+  // Auto-refresh orders every 90 s
+  useEffect(() => {
+    const t = setInterval(loadOrders, 90_000);
+    return () => clearInterval(t);
+  }, []);
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   const stats = useMemo(() => ({
@@ -261,7 +321,7 @@ const ProductsManagement = () => {
     });
     setIsAddProductOpen(false);
     setNewProduct({ category: 'Feed', status: 'active', mrp: 0, sellingPrice: 0, discount: 0, stockQty: 0, lowStockThreshold: 20, unit: 'kg', tags: [], rating: 0, reviewCount: 0, soldCount: 0 });
-    loadData();
+    loadLocal();
   };
 
   const handleAddSupplier = () => {
@@ -272,15 +332,26 @@ const ProductsManagement = () => {
     });
     setIsAddSupplierOpen(false);
     setNewSupplier({ categories: ['Feed'], status: 'active', performanceScore: 80, totalProducts: 0, paymentTerms: 'Net 30' });
-    loadData();
+    loadLocal();
   };
 
-  const handleDeleteProduct = (id: string) => { if (window.confirm('Delete this product?')) { storageService.deleteProduct(id); loadData(); } };
-  const handleSaveStock = (id: string) => { storageService.updateStock(id, editStockQty); setEditStockId(null); loadData(); };
-  const handleOrderStatus = (id: string, status: ShopOrder['status']) => { storageService.updateShopOrderStatus(id, status); loadData(); };
-  const handleApproveReview = (id: string) => { storageService.approveReview(id); loadData(); };
-  const handleFlagReview = (id: string) => { storageService.flagReview(id); loadData(); };
-  const handleDeleteReview = (id: string) => { storageService.deleteReview(id); loadData(); };
+  const handleDeleteProduct = (id: string) => { if (window.confirm('Delete this product?')) { storageService.deleteProduct(id); loadLocal(); } };
+  const handleSaveStock = (id: string) => { storageService.updateStock(id, editStockQty); setEditStockId(null); loadLocal(); };
+
+  // Order status update — push to API for live orders, optimistic update locally
+  const handleOrderStatus = async (id: string, status: ShopOrder['status']) => {
+    const order = shopOrders.find(o => o.id === id);
+    const dbId = order ? (order as any)._dbId : null;
+    const apiStatus = ADMIN_TO_API[status];
+    if (dbId && apiStatus) {
+      try { await apiUpdateStatus(dbId, apiStatus); } catch { /* non-fatal */ }
+    }
+    setShopOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+  };
+
+  const handleApproveReview = (id: string) => { storageService.approveReview(id); loadLocal(); };
+  const handleFlagReview = (id: string) => { storageService.flagReview(id); loadLocal(); };
+  const handleDeleteReview = (id: string) => { storageService.deleteReview(id); loadLocal(); };
 
   const handleReturnStatus = (id: string, status: ReturnStatus, resolution?: string) => {
     setReturns(prev => prev.map(r => r.id === id ? { ...r, status, resolution: resolution || r.resolution } : r));
@@ -314,6 +385,20 @@ const ProductsManagement = () => {
           <p className="text-zinc-400">Manage catalog, inventory, shop orders, suppliers, and reviews.</p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Live orders sync badge */}
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold ${
+            ordersStatus === 'online'  ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' :
+            ordersStatus === 'offline' ? 'bg-red-500/5 border-red-500/20 text-red-400' :
+                                         'bg-zinc-500/5 border-zinc-500/20 text-zinc-500'
+          }`}>
+            <RefreshCw size={12} className={ordersStatus === 'loading' ? 'animate-spin' : ''} />
+            {ordersStatus === 'online' ? `${shopOrders.length} live orders` : ordersStatus === 'offline' ? 'Orders offline' : 'Syncing...'}
+          </div>
+          {lastSync && <span className="text-[10px] text-zinc-600">Synced {lastSync}</span>}
+          <button onClick={loadOrders} disabled={ordersStatus === 'loading'}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
+            <RefreshCw size={12} className={ordersStatus === 'loading' ? 'animate-spin' : ''} /> Refresh
+          </button>
           {tab === 'catalog' && <button onClick={() => setIsAddProductOpen(true)} className="btn-primary flex items-center gap-2"><Plus size={18} />Add Product</button>}
           {tab === 'suppliers' && <button onClick={() => setIsAddSupplierOpen(true)} className="btn-primary flex items-center gap-2"><Plus size={18} />Add Supplier</button>}
         </div>
@@ -580,22 +665,44 @@ const ProductsManagement = () => {
                   <div className="w-11 h-11 rounded-xl bg-zinc-800 flex items-center justify-center text-lg font-display font-bold text-blue-400 border border-white/5">{s.name.charAt(0)}</div>
                   <div>
                     <p className="font-bold">{s.name}</p>
-                    <p className="text-xs text-zinc-500">{s.contact}</p>
+                    <p className="text-xs text-zinc-500">{s.contact} · {s.phone}</p>
                   </div>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>{s.status.toUpperCase()}</span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>{s.status.toUpperCase()}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    (s as any).kycStatus === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                    (s as any).kycStatus === 'REJECTED' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                    'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                  }`}>KYC: {(s as any).kycStatus || 'PENDING'}</span>
+                </div>
               </div>
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between text-xs"><span className="text-zinc-500">Location</span><span className="text-zinc-300">{s.location}</span></div>
-                <div className="flex justify-between text-xs"><span className="text-zinc-500">Phone</span><span className="text-zinc-300">{s.phone}</span></div>
                 <div className="flex justify-between text-xs"><span className="text-zinc-500">Payment Terms</span><span className="text-zinc-300">{s.paymentTerms}</span></div>
+                {(s as any).gstNumber && <div className="flex justify-between text-xs"><span className="text-zinc-500">GST</span><span className="font-mono text-zinc-300">{(s as any).gstNumber}</span></div>}
+                {(s as any).licenseType && <div className="flex justify-between text-xs"><span className="text-zinc-500">{(s as any).licenseType}</span><span className="text-zinc-300">{(s as any).licenseNumber}</span></div>}
+                {(s as any).marginPercent !== undefined && <div className="flex justify-between text-xs"><span className="text-zinc-500">AquaGrow Margin</span><span className="font-bold text-emerald-400">{(s as any).marginPercent}%</span></div>}
                 <div className="flex justify-between text-xs items-center"><span className="text-zinc-500">Performance</span>
                   <div className="flex items-center gap-2"><div className="w-16 h-1.5 bg-zinc-800 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${s.performanceScore}%` }} /></div><span className="font-mono font-bold text-xs">{s.performanceScore}%</span></div>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-1 pt-3 border-t border-white/5">
+              <div className="flex flex-wrap gap-1 pt-3 border-t border-white/5 mb-3">
                 {s.categories.map(c => <CatBadge key={c} cat={c} />)}
               </div>
+              {/* KYC Actions */}
+              {(s as any).kycStatus !== 'APPROVED' && (
+                <div className="flex gap-2">
+                  <button onClick={() => { storageService.saveSupplier({ ...s, kycStatus: 'APPROVED', kycApprovedAt: new Date().toISOString().split('T')[0] } as any); loadLocal(); }}
+                    className="flex-1 text-[10px] font-bold py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all">✓ Approve KYC</button>
+                  <button onClick={() => { storageService.saveSupplier({ ...s, kycStatus: 'REJECTED' } as any); loadLocal(); }}
+                    className="flex-1 text-[10px] font-bold py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all">✗ Reject KYC</button>
+                </div>
+              )}
+              {(s as any).kycStatus === 'APPROVED' && (
+                <button onClick={() => { storageService.saveSupplier({ ...s, kycStatus: 'PENDING' } as any); loadLocal(); }}
+                  className="w-full text-[10px] font-bold py-1.5 rounded-lg bg-zinc-800 text-zinc-500 hover:bg-zinc-700 transition-all">Revoke KYC Approval</button>
+              )}
             </motion.div>
           ))}
         </div>
@@ -743,7 +850,7 @@ const ProductsManagement = () => {
           <div className="glass-panel p-6">
             <h3 className="text-lg font-display font-bold mb-5 flex items-center gap-2"><MapPin size={16} className="text-emerald-400" />Delivery Zones & Charges</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {storageService.getDeliveryZones().map(z => (
+              {storageService.getDeliveryZones().map((z: any) => (
                 <div key={z.id} className="p-5 rounded-xl bg-white/5 border border-white/5">
                   <div className="flex items-center justify-between mb-3">
                     <p className="font-bold">{z.name}</p>
@@ -752,7 +859,7 @@ const ProductsManagement = () => {
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs"><span className="text-zinc-500">Delivery Charge</span><span className="font-bold text-emerald-400">₹{z.charge}</span></div>
                     <div className="flex justify-between text-xs"><span className="text-zinc-500">Est. Days</span><span className="font-bold">{z.estimatedDays} day{z.estimatedDays > 1 ? 's' : ''}</span></div>
-                    <div className="flex flex-wrap gap-1 mt-2">{z.regions.map(r => <span key={r} className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-zinc-400">{r}</span>)}</div>
+                    <div className="flex flex-wrap gap-1 mt-2">{z.regions.map((r: string) => <span key={r} className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-zinc-400">{r}</span>)}</div>
                   </div>
                 </div>
               ))}
@@ -839,11 +946,11 @@ const ProductsManagement = () => {
                       <td className="px-5 py-3"><p className="text-xs text-zinc-400">{o.createdAt}</p></td>
                       <td className="px-5 py-3">
                         {o.paymentStatus === 'FAILED' && (
-                          <button onClick={() => { storageService.updateShopOrderStatus(o.id, o.status, { paymentStatus: 'PENDING' }); loadData(); }}
+                          <button onClick={() => setShopOrders(prev => prev.map(x => x.id === o.id ? { ...x, paymentStatus: 'PENDING' as const } : x))}
                             className="text-xs text-blue-400 hover:text-white border border-blue-500/20 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1"><RefreshCw size={10} />Retry</button>
                         )}
                         {o.paymentStatus === 'PAID' && o.status === 'RETURNED' && (
-                          <button onClick={() => { storageService.updateShopOrderStatus(o.id, o.status, { paymentStatus: 'REFUNDED' }); loadData(); }}
+                          <button onClick={() => setShopOrders(prev => prev.map(x => x.id === o.id ? { ...x, paymentStatus: 'REFUNDED' as const } : x))}
                             className="text-xs text-radiant-sun hover:text-white border border-radiant-sun/20 px-2.5 py-1 rounded-lg transition-all">Refund</button>
                         )}
                       </td>
@@ -1423,6 +1530,10 @@ const ProductsManagement = () => {
                 <div className="flex flex-wrap gap-2">
                   <CatBadge cat={detailProduct.category} />
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${detailProduct.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>{detailProduct.status.replace(/_/g, ' ').toUpperCase()}</span>
+                  {(detailProduct as any).isRegulatoryApproved
+                    ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">✓ Approved for Sale</span>
+                    : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-red-500/10 text-red-400 border-red-500/20">🔒 Pending Approval</span>
+                  }
                 </div>
                 <p className="text-sm text-zinc-400">{detailProduct.description}</p>
                 <div className="grid grid-cols-2 gap-3">
@@ -1435,14 +1546,31 @@ const ProductsManagement = () => {
                     { label: 'Sold Count', value: String(detailProduct.soldCount) },
                     { label: 'Rating', value: detailProduct.rating > 0 ? `${detailProduct.rating} / 5 (${detailProduct.reviewCount} reviews)` : 'No ratings' },
                     { label: 'Species Target', value: detailProduct.speciesTarget || 'All species' },
+                    ...(( detailProduct as any).batchNumber ? [{ label: 'Batch No', value: (detailProduct as any).batchNumber }] : []),
+                    ...(( detailProduct as any).expiryDate  ? [{ label: 'Expiry Date', value: (detailProduct as any).expiryDate }] : []),
+                    ...(( detailProduct as any).maxDosePerAcre ? [{ label: 'Max Dose / Acre', value: (detailProduct as any).maxDosePerAcre }] : []),
                   ].map(({ label, value }) => (
                     <div key={label} className="p-3 rounded-xl bg-white/5 border border-white/5"><p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">{label}</p><p className="font-bold text-sm">{value}</p></div>
                   ))}
                 </div>
+                {(detailProduct as any).certifications?.length > 0 && (
+                  <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/10">
+                    <p className="text-xs font-bold text-purple-400 mb-2">📋 Certifications</p>
+                    <div className="flex flex-wrap gap-2">{((detailProduct as any).certifications as string[]).map(c => <span key={c} className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">{c}</span>)}</div>
+                  </div>
+                )}
                 {detailProduct.usageInstructions && <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/10"><p className="text-xs font-bold text-blue-400 mb-1 flex items-center gap-1"><BookOpen size={10} />Usage Instructions</p><p className="text-sm text-zinc-300">{detailProduct.usageInstructions}</p></div>}
                 {detailProduct.dosageInfo && <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10"><p className="text-xs font-bold text-emerald-400 mb-1">Dosage</p><p className="text-sm text-zinc-300">{detailProduct.dosageInfo}</p></div>}
                 {detailProduct.warnings && <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/10"><p className="text-xs font-bold text-red-400 mb-1 flex items-center gap-1"><AlertTriangle size={10} />Warnings</p><p className="text-sm text-zinc-300">{detailProduct.warnings}</p></div>}
                 <div className="flex flex-wrap gap-1">{detailProduct.tags.map(t => <span key={t} className="text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/5 text-zinc-400">{t}</span>)}</div>
+                {/* Regulatory toggle inline */}
+                <div className="flex items-center justify-between p-4 rounded-xl bg-amber-500/5 border border-amber-500/10">
+                  <div><p className="text-xs font-bold text-amber-400">Regulatory Approval</p><p className="text-[10px] text-zinc-500">Toggle to {(detailProduct as any).isRegulatoryApproved ? 'revoke from' : 'approve for'} AquaShop</p></div>
+                  <button onClick={() => { const updated = { ...detailProduct, isRegulatoryApproved: !(detailProduct as any).isRegulatoryApproved }; storageService.saveProduct(updated as any); setDetailProduct(updated as any); loadLocal(); }}
+                    className={`relative w-12 h-6 rounded-full transition-all ${(detailProduct as any).isRegulatoryApproved ? 'bg-emerald-500' : 'bg-zinc-700'}`}>
+                    <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${(detailProduct as any).isRegulatoryApproved ? 'left-7' : 'left-1'}`} />
+                  </button>
+                </div>
               </div>
               <div className="p-5 border-t border-white/5">
                 <button onClick={() => handleDeleteProduct(detailProduct.id)} className="w-full py-2 text-xs text-zinc-600 hover:text-red-400 transition-colors flex items-center justify-center gap-1.5"><Trash2 size={13} />Delete Product</button>
@@ -1463,6 +1591,7 @@ const ProductsManagement = () => {
                 <button onClick={() => setIsAddProductOpen(false)} className="p-2 hover:bg-white/5 rounded-lg"><X size={22} /></button>
               </div>
               <div className="space-y-4">
+                {/* Basic Info */}
                 <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Product Name *</label><input type="text" placeholder="e.g. AquaGrow Pro Feed" value={newProduct.name || ''} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} className="input-field w-full" /></div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Category</label>
@@ -1474,6 +1603,7 @@ const ProductsManagement = () => {
                   <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Species Target</label><input type="text" placeholder="e.g. L. Vannamei" value={newProduct.speciesTarget || ''} onChange={e => setNewProduct({ ...newProduct, speciesTarget: e.target.value })} className="input-field w-full" /></div>
                 </div>
                 <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Description</label><textarea rows={2} value={newProduct.description || ''} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })} className="input-field w-full resize-none" /></div>
+                {/* Pricing */}
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">MRP (₹)</label><input type="number" value={newProduct.mrp || 0} onChange={e => setNewProduct({ ...newProduct, mrp: +e.target.value })} className="input-field w-full" /></div>
                   <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Selling Price (₹)</label><input type="number" value={newProduct.sellingPrice || 0} onChange={e => setNewProduct({ ...newProduct, sellingPrice: +e.target.value })} className="input-field w-full" /></div>
@@ -1483,12 +1613,37 @@ const ProductsManagement = () => {
                   <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Initial Stock</label><input type="number" value={newProduct.stockQty || 0} onChange={e => setNewProduct({ ...newProduct, stockQty: +e.target.value })} className="input-field w-full" /></div>
                   <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Low Stock Alert At</label><input type="number" value={newProduct.lowStockThreshold || 20} onChange={e => setNewProduct({ ...newProduct, lowStockThreshold: +e.target.value })} className="input-field w-full" /></div>
                 </div>
+                {/* Usage Info */}
                 <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Usage Instructions</label><textarea rows={2} value={newProduct.usageInstructions || ''} onChange={e => setNewProduct({ ...newProduct, usageInstructions: e.target.value })} className="input-field w-full resize-none" placeholder="How to use this product..." /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Dosage Info</label><input type="text" value={newProduct.dosageInfo || ''} onChange={e => setNewProduct({ ...newProduct, dosageInfo: e.target.value })} className="input-field w-full" /></div>
-                  <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Tags (comma sep.)</label><input type="text" placeholder="Growth, Vannamei, Bio" onChange={e => setNewProduct({ ...newProduct, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })} className="input-field w-full" /></div>
+                  <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Dosage Info</label><input type="text" value={newProduct.dosageInfo || ''} onChange={e => setNewProduct({ ...newProduct, dosageInfo: e.target.value })} className="input-field w-full" placeholder="e.g. 2 kg/acre, 3x daily" /></div>
+                  <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Max Dose / Acre ⚠️</label><input type="text" value={(newProduct as any).maxDosePerAcre || ''} onChange={e => setNewProduct({ ...newProduct, maxDosePerAcre: e.target.value } as any)} className="input-field w-full" placeholder="e.g. 5 kg/acre (overdose limit)" /></div>
                 </div>
                 <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Warnings</label><input type="text" value={newProduct.warnings || ''} onChange={e => setNewProduct({ ...newProduct, warnings: e.target.value })} className="input-field w-full" /></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Tags (comma sep.)</label><input type="text" placeholder="Growth, Vannamei, Bio" onChange={e => setNewProduct({ ...newProduct, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })} className="input-field w-full" /></div>
+                  <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Supplier Name</label><input type="text" value={newProduct.supplierName || ''} onChange={e => setNewProduct({ ...newProduct, supplierName: e.target.value })} className="input-field w-full" placeholder="Link to supplier" /></div>
+                </div>
+                {/* Compliance & Traceability */}
+                <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/10 space-y-3">
+                  <p className="text-xs font-bold text-red-400 flex items-center gap-2"><FlaskConical size={12} />Compliance & Traceability (Medicine / Chemical)</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Expiry Date</label><input type="date" value={(newProduct as any).expiryDate || ''} onChange={e => setNewProduct({ ...newProduct, expiryDate: e.target.value } as any)} className="input-field w-full" /></div>
+                    <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Batch Number</label><input type="text" placeholder="e.g. BSI-MED-0326" value={(newProduct as any).batchNumber || ''} onChange={e => setNewProduct({ ...newProduct, batchNumber: e.target.value } as any)} className="input-field w-full" /></div>
+                  </div>
+                  <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Certifications (comma sep.)</label><input type="text" placeholder="ISO, FSSAI, Drugs License, BIS" onChange={e => setNewProduct({ ...newProduct, certifications: e.target.value.split(',').map(c => c.trim()).filter(Boolean) } as any)} className="input-field w-full" /></div>
+                </div>
+                {/* Regulatory Approval Gate */}
+                <div className="flex items-center justify-between p-4 rounded-xl bg-amber-500/5 border border-amber-500/10">
+                  <div>
+                    <p className="text-sm font-bold text-amber-400">Regulatory Approval Gate</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">Product won't appear in AquaShop until approved by admin.</p>
+                  </div>
+                  <button onClick={() => setNewProduct({ ...newProduct, isRegulatoryApproved: !(newProduct as any).isRegulatoryApproved } as any)}
+                    className={`relative w-12 h-6 rounded-full transition-all ${(newProduct as any).isRegulatoryApproved ? 'bg-emerald-500' : 'bg-zinc-700'}`}>
+                    <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${(newProduct as any).isRegulatoryApproved ? 'left-7' : 'left-1'}`} />
+                  </button>
+                </div>
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/5">
                   <button onClick={() => setIsAddProductOpen(false)} className="btn-secondary">Cancel</button>
                   <button onClick={handleAddProduct} disabled={!newProduct.name} className="btn-primary flex items-center gap-2 disabled:opacity-50"><Package size={16} />Add Product</button>
@@ -1509,16 +1664,48 @@ const ProductsManagement = () => {
                 <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center"><Building2 size={20} /></div><h2 className="text-2xl font-display font-bold">Add Supplier</h2></div>
                 <button onClick={() => setIsAddSupplierOpen(false)} className="p-2 hover:bg-white/5 rounded-lg"><X size={22} /></button>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar pr-1">
+                {/* Basic Info */}
                 <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Supplier Name *</label><input type="text" value={newSupplier.name || ''} onChange={e => setNewSupplier({ ...newSupplier, name: e.target.value })} className="input-field w-full" /></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Contact Person</label><input type="text" value={newSupplier.contact || ''} onChange={e => setNewSupplier({ ...newSupplier, contact: e.target.value })} className="input-field w-full" /></div>
                   <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Phone</label><input type="text" value={newSupplier.phone || ''} onChange={e => setNewSupplier({ ...newSupplier, phone: e.target.value })} className="input-field w-full" /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Email</label><input type="email" value={newSupplier.email || ''} onChange={e => setNewSupplier({ ...newSupplier, email: e.target.value })} className="input-field w-full" /></div>
                   <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Location</label><input type="text" value={newSupplier.location || ''} onChange={e => setNewSupplier({ ...newSupplier, location: e.target.value })} className="input-field w-full" /></div>
-                  <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Payment Terms</label><input type="text" placeholder="Net 30" value={newSupplier.paymentTerms || ''} onChange={e => setNewSupplier({ ...newSupplier, paymentTerms: e.target.value })} className="input-field w-full" /></div>
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Payment Terms</label><input type="text" placeholder="Net 30" value={newSupplier.paymentTerms || ''} onChange={e => setNewSupplier({ ...newSupplier, paymentTerms: e.target.value })} className="input-field w-full" /></div>
+                  <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">AquaGrow Margin %</label><input type="number" min={0} max={50} value={(newSupplier as any).marginPercent || 15} onChange={e => setNewSupplier({ ...newSupplier, marginPercent: +e.target.value } as any)} className="input-field w-full" /></div>
+                </div>
+                {/* KYC & Compliance */}
+                <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/10 space-y-3">
+                  <p className="text-xs font-bold text-blue-400 flex items-center gap-2">🔐 KYC & Compliance</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">GST Number</label><input type="text" placeholder="22AAAAA0000A1Z5" value={(newSupplier as any).gstNumber || ''} onChange={e => setNewSupplier({ ...newSupplier, gstNumber: e.target.value } as any)} className="input-field w-full font-mono" /></div>
+                    <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">PAN Number</label><input type="text" placeholder="AAAAA0000A" value={(newSupplier as any).panNumber || ''} onChange={e => setNewSupplier({ ...newSupplier, panNumber: e.target.value } as any)} className="input-field w-full font-mono" /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">License Type</label>
+                      <select value={(newSupplier as any).licenseType || ''} onChange={e => setNewSupplier({ ...newSupplier, licenseType: e.target.value } as any)} className="input-field w-full bg-zinc-900">
+                        <option value="">Select type</option>
+                        <option>Drug License</option><option>FSSAI</option><option>Trade License</option><option>Import License</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">License Number</label><input type="text" value={(newSupplier as any).licenseNumber || ''} onChange={e => setNewSupplier({ ...newSupplier, licenseNumber: e.target.value } as any)} className="input-field w-full" /></div>
+                  </div>
+                </div>
+                {/* Bank Details */}
+                <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10 space-y-3">
+                  <p className="text-xs font-bold text-emerald-400 flex items-center gap-2">🏦 Bank Details (for payouts)</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Account Number</label><input type="text" value={(newSupplier as any).bankAccount || ''} onChange={e => setNewSupplier({ ...newSupplier, bankAccount: e.target.value } as any)} className="input-field w-full font-mono" /></div>
+                    <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">IFSC Code</label><input type="text" placeholder="SBIN0000001" value={(newSupplier as any).bankIfsc || ''} onChange={e => setNewSupplier({ ...newSupplier, bankIfsc: e.target.value } as any)} className="input-field w-full font-mono" /></div>
+                  </div>
+                  <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Bank Name</label><input type="text" value={(newSupplier as any).bankName || ''} onChange={e => setNewSupplier({ ...newSupplier, bankName: e.target.value } as any)} className="input-field w-full" /></div>
+                </div>
+                <div className="space-y-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Internal Notes</label><textarea rows={2} value={(newSupplier as any).notes || ''} onChange={e => setNewSupplier({ ...newSupplier, notes: e.target.value } as any)} className="input-field w-full resize-none" /></div>
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/5">
                   <button onClick={() => setIsAddSupplierOpen(false)} className="btn-secondary">Cancel</button>
                   <button onClick={handleAddSupplier} disabled={!newSupplier.name} className="btn-primary flex items-center gap-2 disabled:opacity-50"><Building2 size={16} />Add Supplier</button>
