@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShopOrder, ShopOrderItem, ProductCategory } from '../types';
-import { storageService } from '../services/storageService';
 import { fetchAllOrders, updateShopOrderStatus as apiUpdateStatus, type LiveShopOrder } from '../services/aquagrowApi';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -141,7 +140,6 @@ function normalizeDbOrder(o: LiveShopOrder): ShopOrder {
 const OrderManagement = () => {
   const [tab, setTab] = useState<Tab>('dashboard');
   const [orders, setOrders] = useState<ShopOrder[]>([]);
-  const [products, setProducts] = useState(storageService.getProducts());
   const [apiStatus, setApiStatus] = useState<'online' | 'offline' | 'loading'>('loading');
   const [dbOrderCount, setDbOrderCount] = useState(0);
   const [lastSync, setLastSync] = useState<string | null>(null);
@@ -157,41 +155,23 @@ const OrderManagement = () => {
   const [trackingInput, setTrackingInput] = useState('');
   const [editTrackId, setEditTrackId] = useState<string | null>(null);
 
-  // Notifications log (auto-generated)
-  const [notifications, setNotifications] = useState<{ id: string; msg: string; type: string; at: string }[]>([
-    { id: 'N1', msg: 'Order SHO-001 delivered to John Doe — Zone A Farm', type: 'DELIVERED', at: '2026-04-14 10:22' },
-    { id: 'N2', msg: 'Order SHO-002 shipped. Tracking: TRK-002', type: 'SHIPPED', at: '2026-04-13 08:10' },
-    { id: 'N3', msg: 'Payment pending for SHO-002 (COD) — follow up required', type: 'PAYMENT', at: '2026-04-13 08:10' },
-    { id: 'N4', msg: 'New order SHO-004 placed by John Doe — OxyBoost Aerator', type: 'NEW_ORDER', at: '2026-04-17 09:30' },
-  ]);
+  // Notifications log
+  const [notifications, setNotifications] = useState<{ id: string; msg: string; type: string; at: string }[]>([]);
 
-  // Complaints
-  const [complaints, setComplaints] = useState<Complaint[]>([
-    { id: 'CMP-001', orderId: 'SHO-002', farmerName: 'Jane Smith', issue: 'Package arrived damaged. Outer box crushed.', status: 'OPEN', createdAt: '2026-04-14' },
-    { id: 'CMP-002', orderId: 'SHO-003', farmerName: 'Mike Ross', issue: 'IoT Device not pairing with app after setup.', status: 'IN_PROGRESS', createdAt: '2026-04-15' },
-  ]);
+  // Complaints (local state — no backend endpoint yet)
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
 
   const load = useCallback(async () => {
-    // 1. Always load local/mock orders
-    const localOrders = storageService.getShopOrders();
-    setProducts(storageService.getProducts());
-
-    // 2. Fetch live DB orders from AquaGrow API
     try {
       setApiStatus('loading');
-      const dbOrders = await fetchAllOrders();      // unified: ShopOrders + ProviderOrders
+      const dbOrders = await fetchAllOrders();
       const normalized = dbOrders.map(normalizeDbOrder);
       setDbOrderCount(normalized.length);
       setApiStatus('online');
       setLastSync(new Date().toLocaleTimeString());
+      setOrders(normalized);
 
-      // 3. Merge: DB orders first (newest), then local mock orders
-      //    De-dupe by _dbId so refreshing doesn't double up DB orders
-      const dbIds = new Set(normalized.map(o => (o as any)._dbId));
-      const combined = [...normalized, ...localOrders.filter(o => !(o as any)._dbId || !dbIds.has((o as any)._dbId))];
-      setOrders(combined);
-
-      // Auto-generate notification for new DB orders
+      // Auto-generate arrival notification for newest order
       if (normalized.length > 0) {
         const newest = normalized[0];
         setNotifications(prev => {
@@ -202,14 +182,12 @@ const OrderManagement = () => {
       }
     } catch {
       setApiStatus('offline');
-      // On API failure, still show local orders
-      setOrders(localOrders);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  // Auto-refresh DB orders every 90 seconds
+  // Auto-refresh every 90 seconds
   useEffect(() => {
     const t = setInterval(load, 90 * 1000);
     return () => clearInterval(t);
@@ -249,52 +227,50 @@ const OrderManagement = () => {
     const idx = STATUS_FLOW.indexOf(order.status);
     if (idx < 0 || idx >= STATUS_FLOW.length - 1) return;
     const next = STATUS_FLOW[idx + 1];
-    const extra: Partial<ShopOrder> = {};
-    if (next === 'DELIVERED') extra.deliveredAt = new Date().toISOString().split('T')[0];
-
-    // If this is a live DB order, also update via API
     const dbId = (order as any)._dbId;
-    if (dbId) {
-      const apiStatus = ADMIN_TO_API_STATUS[next];
-      if (apiStatus) {
-        try { await apiUpdateStatus(dbId, apiStatus); } catch { /* non-fatal */ }
-      }
-    } else {
-      storageService.updateShopOrderStatus(order.id, next, extra);
+    const apiStatusVal = ADMIN_TO_API_STATUS[next];
+    if (dbId && apiStatusVal) {
+      try { await apiUpdateStatus(dbId, apiStatusVal); } catch { /* non-fatal */ }
     }
-
+    // Optimistic update
+    const extra: Partial<ShopOrder> = { status: next };
+    if (next === 'DELIVERED') extra.deliveredAt = new Date().toISOString().split('T')[0];
+    setOrders(prev => prev.map(o => o.id === order.id ? { ...o, ...extra } : o));
+    if (selected?.id === order.id) setSelected(prev => prev ? { ...prev, ...extra } : null);
     pushNotif(order, next);
-    await load();
-    if (selected?.id === order.id) setSelected({ ...order, status: next, ...extra });
   };
 
-  const cancelOrder = (id: string, reason: string) => {
-    storageService.updateShopOrderStatus(id, 'CANCELLED', { cancelReason: reason });
+  const cancelOrder = async (id: string, reason: string) => {
+    const order = orders.find(o => o.id === id);
+    const dbId = order ? (order as any)._dbId : null;
+    if (dbId) {
+      try { await apiUpdateStatus(dbId, 'cancelled'); } catch { /* non-fatal */ }
+    }
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'CANCELLED' as OrderStatus } : o));
     setNotifications(prev => [{ id: `N${Date.now()}`, msg: `Order ${id} cancelled.`, type: 'CANCELLED', at: new Date().toLocaleString() }, ...prev]);
-    load();
     setSelected(null);
   };
 
   const markPaid = (id: string) => {
-    storageService.updateShopOrderStatus(id, orders.find(o => o.id === id)?.status ?? 'CONFIRMED', { paymentStatus: 'PAID' });
-    load();
-    if (selected?.id === id) setSelected(prev => prev ? { ...prev, paymentStatus: 'PAID' } : null);
+    // Optimistic UI update — no backend payment endpoint yet
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, paymentStatus: 'PAID' as const } : o));
+    if (selected?.id === id) setSelected(prev => prev ? { ...prev, paymentStatus: 'PAID' as const } : null);
   };
 
   const setTracking = (id: string) => {
     if (!trackingInput) return;
-    storageService.updateShopOrderStatus(id, orders.find(o => o.id === id)?.status ?? 'SHIPPED', { trackingId: trackingInput });
+    // Optimistic update (tracking stored client-side for now)
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, trackingId: trackingInput } : o));
     setNotifications(prev => [{ id: `N${Date.now()}`, msg: `Tracking ID ${trackingInput} added to ${id}`, type: 'SHIPPED', at: new Date().toLocaleString() }, ...prev]);
     setEditTrackId(null);
     setTrackingInput('');
-    load();
   };
 
   const pushNotif = (o: ShopOrder, status: OrderStatus) => {
     const msgs: Partial<Record<OrderStatus, string>> = {
       CONFIRMED: `Order ${o.id} confirmed for ${o.farmerName}`,
       PACKED:    `Order ${o.id} packed and ready for dispatch`,
-      SHIPPED:   `Order ${o.id} shipped to ${o.farmerName} — ${o.deliveryAddress}`,
+      SHIPPED:   `Order ${o.id} shipped to ${o.farmerName}`,
       DELIVERED: `Order ${o.id} delivered to ${o.farmerName} ✓`,
     };
     if (msgs[status]) {
@@ -767,13 +743,13 @@ const OrderManagement = () => {
                 <div className="flex items-center gap-3"><StatusBadge s={o.status} /><span className="font-mono text-xs text-emerald-400">{o.id}</span><span className="font-bold">{o.farmerName}</span></div>
                 <div className="flex items-center gap-2">
                   {o.paymentStatus === 'PAID' && o.status === 'RETURNED' && (
-                    <button onClick={() => { storageService.updateShopOrderStatus(o.id, o.status, { paymentStatus: 'REFUNDED' }); load(); }}
+                    <button onClick={() => setOrders(prev => prev.map(x => x.id === o.id ? { ...x, paymentStatus: 'REFUNDED' as const } : x))}
                       className="text-xs font-bold px-3 py-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white rounded-xl transition-all">
                       Issue Refund
                     </button>
                   )}
                   {o.status === 'RETURNED' && (
-                    <button onClick={() => { storageService.updateStock(o.items[0].productId, products.find(p => p.id === o.items[0].productId)?.stockQty ?? 0 + o.items[0].quantity); load(); }}
+                    <button onClick={() => alert('Restock request noted — update inventory in your warehouse management system.')}
                       className="text-xs font-bold px-3 py-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-xl transition-all">
                       ↩ Restock Items
                     </button>
@@ -824,7 +800,7 @@ const OrderManagement = () => {
                             <button onClick={() => markPaid(o.id)} className="text-[10px] font-bold px-2.5 py-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-lg transition-all flex items-center gap-1"><CheckCircle2 size={10} />Mark Paid</button>
                           )}
                           {o.paymentStatus === 'FAILED' && (
-                            <button onClick={() => { storageService.updateShopOrderStatus(o.id, o.status, { paymentStatus: 'PENDING' }); load(); }}
+                            <button onClick={() => setOrders(prev => prev.map(x => x.id === o.id ? { ...x, paymentStatus: 'PENDING' as const } : x))}
                               className="text-[10px] font-bold px-2.5 py-1 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg transition-all"><RefreshCw size={10} /></button>
                           )}
                         </div>
@@ -841,52 +817,54 @@ const OrderManagement = () => {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* INVENTORY SYNC                                                     */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {tab === 'inventory' && (
-        <div className="space-y-5">
-          <div className="glass-panel p-5 border border-amber-500/10 flex items-center gap-3">
-            <AlertTriangle size={18} className="text-amber-400 shrink-0" />
-            <p className="text-sm text-zinc-300"><span className="font-bold text-amber-400">Auto-sync active:</span> Stock is reduced when an order reaches <span className="text-emerald-400 font-bold">CONFIRMED</span>. Returns trigger automatic restock on approval.</p>
-          </div>
-
-          <div className="glass-panel overflow-hidden">
-            <div className="p-6 border-b border-white/5"><h3 className="text-xl font-display font-bold">Product Stock vs Orders</h3></div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead><tr className="border-b border-white/5 bg-white/5">
-                  {['Product','SKU','Current Stock','Ordered','Reserved','Available','Stock Status'].map(h => (
-                    <th key={h} className="px-5 py-4 text-xs font-bold text-zinc-500 uppercase">{h}</th>
-                  ))}
-                </tr></thead>
-                <tbody className="divide-y divide-white/5">
-                  {products.map(p => {
-                    const ordered = orders.filter(o => !['CANCELLED','RETURNED'].includes(o.status))
-                      .flatMap(o => o.items.filter(i => i.productId === p.id))
-                      .reduce((s, i) => s + i.quantity, 0);
-                    const available = Math.max(0, p.stockQty - ordered);
-                    const isLow = available <= p.lowStockThreshold;
-                    const isOut = available === 0;
-                    return (
-                      <tr key={p.id} className="hover:bg-white/5 transition-colors">
-                        <td className="px-5 py-4"><p className="font-bold text-sm">{p.name}</p><p className="text-[10px] text-zinc-500">{p.unit}</p></td>
-                        <td className="px-5 py-4 font-mono text-xs text-zinc-400">{p.sku}</td>
-                        <td className="px-5 py-4 font-bold">{p.stockQty}</td>
-                        <td className="px-5 py-4 text-blue-400">{ordered}</td>
-                        <td className="px-5 py-4 text-amber-400">{ordered}</td>
-                        <td className="px-5 py-4 font-bold">{available}</td>
-                        <td className="px-5 py-4">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${isOut ? 'bg-red-500/10 text-red-400 border-red-500/20' : isLow ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
-                            {isOut ? 'OUT OF STOCK' : isLow ? 'LOW STOCK' : 'OK'}
-                          </span>
-                        </td>
+      {tab === 'inventory' && (() => {
+        // Derive unique products from live orders
+        const productMap = new Map<string, { name: string; category: string; totalOrdered: number; activeOrdered: number }>();
+        orders.forEach(o => {
+          o.items.forEach(it => {
+            const key = it.productName;
+            const existing = productMap.get(key) ?? { name: key, category: it.category, totalOrdered: 0, activeOrdered: 0 };
+            existing.totalOrdered += it.quantity;
+            if (!['CANCELLED','RETURNED'].includes(o.status)) existing.activeOrdered += it.quantity;
+            productMap.set(key, existing);
+          });
+        });
+        const productRows = Array.from(productMap.values()).sort((a, b) => b.activeOrdered - a.activeOrdered);
+        return (
+          <div className="space-y-5">
+            <div className="glass-panel p-5 border border-amber-500/10 flex items-center gap-3">
+              <AlertTriangle size={18} className="text-amber-400 shrink-0" />
+              <p className="text-sm text-zinc-300"><span className="font-bold text-amber-400">Live inventory view:</span> Product demand is calculated from active DB orders. Cancelled / returned orders are excluded from reserved count.</p>
+            </div>
+            <div className="glass-panel overflow-hidden">
+              <div className="p-6 border-b border-white/5"><h3 className="text-xl font-display font-bold">Product Demand from Live Orders</h3></div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead><tr className="border-b border-white/5 bg-white/5">
+                    {['Product','Category','Total Ordered','Active Orders','Cancelled/Returned'].map(h => (
+                      <th key={h} className="px-5 py-4 text-xs font-bold text-zinc-500 uppercase">{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody className="divide-y divide-white/5">
+                    {productRows.map(p => (
+                      <tr key={p.name} className="hover:bg-white/5 transition-colors">
+                        <td className="px-5 py-4 font-bold text-sm">{p.name}</td>
+                        <td className="px-5 py-4"><CatBadge c={p.category as ProductCategory} /></td>
+                        <td className="px-5 py-4 font-bold text-zinc-200">{p.totalOrdered}</td>
+                        <td className="px-5 py-4 text-emerald-400 font-bold">{p.activeOrdered}</td>
+                        <td className="px-5 py-4 text-red-400">{p.totalOrdered - p.activeOrdered}</td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    ))}
+                    {productRows.length === 0 && (
+                      <tr><td colSpan={5} className="px-5 py-12 text-center text-zinc-600">No product data in live orders.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* SPECIAL PRODUCT HANDLING                                           */}

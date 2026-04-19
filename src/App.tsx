@@ -6,7 +6,6 @@ import Layout from './components/Layout';
 
 // Existing pages
 import Dashboard from './pages/Dashboard';
-import Orders from './pages/Orders';
 import Operations from './pages/Operations';
 import ProviderRegistry from './pages/ProviderRegistry';
 import Finance from './pages/Finance';
@@ -77,7 +76,6 @@ const App = () => {
         <Route path="/iot-devices"   element={<ProtectedRoute><Layout><IoTDevices /></Layout></ProtectedRoute>} />
 
         {/* ── Commerce ──────────────────────────────────────── */}
-        <Route path="/orders"          element={<ProtectedRoute><Layout><Orders /></Layout></ProtectedRoute>} />
         <Route path="/order-management"element={<ProtectedRoute><Layout><OrderManagement /></Layout></ProtectedRoute>} />
         <Route path="/price-control"   element={<ProtectedRoute><Layout><PriceControl /></Layout></ProtectedRoute>} />
         <Route path="/buyers"          element={<ProtectedRoute><Layout><BuyerManagement /></Layout></ProtectedRoute>} />
