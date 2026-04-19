@@ -7,6 +7,7 @@ import {
   Download, Trash2, Plus, X, Key, Lock
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useTheme } from '../context/ThemeContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Tab = 'general' | 'appearance' | 'notifications' | 'security' | 'integrations' | 'admin' | 'data';
@@ -52,9 +53,10 @@ const SettingsPage = () => {
   const [lang, setLang] = useState('en');
   const [dateFormat, setDateFormat] = useState('DD/MM/YYYY');
 
+  const { isDark, toggleTheme } = useTheme();
+
   // Appearance
   const [accentColor, setAccentColor] = useState('#10b981');
-  const [darkMode, setDarkMode] = useState(true);
   const [compactMode, setCompactMode] = useState(false);
   const [animations, setAnimations] = useState(true);
   const [tableRowDensity, setTableRowDensity] = useState('comfortable');
@@ -216,8 +218,8 @@ const SettingsPage = () => {
           {tab === 'appearance' && (
             <>
               <Section title="Theme & Colors" icon={Palette}>
-                <SettingRow label="Dark Mode" sub="Default application theme (dark recommended)">
-                  <Toggle value={darkMode} onChange={setDarkMode} />
+                <SettingRow label="Dark Mode" sub="Toggle between dark and light theme">
+                  <Toggle value={isDark} onChange={toggleTheme} />
                 </SettingRow>
                 <SettingRow label="Accent Color" sub="Primary brand color used throughout the platform">
                   <div className="flex items-center gap-3">
@@ -372,12 +374,11 @@ const SettingsPage = () => {
             </>
           )}
 
-          {/* ── INTEGRATIONS ──────────────────────────────────────────────────── */}
           {tab === 'integrations' && (
             <>
               <Section title="Payment Gateway" icon={CreditCard}>
                 <SettingRow label="Gateway" sub="Active payment processor">
-                  <select className="input-field w-40 bg-zinc-900 text-sm">
+                  <select className="input-field w-40 text-sm">
                     <option>Razorpay</option>
                     <option>Stripe</option>
                     <option>PayU</option>
@@ -399,7 +400,7 @@ const SettingsPage = () => {
                   <Toggle value={whatsappEnabled} onChange={setWhatsappEnabled} />
                 </SettingRow>
                 <SettingRow label="SMS Gateway" sub="Provider for OTP and critical SMS alerts">
-                  <select value={smsGateway} onChange={e => setSmsGateway(e.target.value)} className="input-field w-40 bg-zinc-900 text-sm">
+                  <select value={smsGateway} onChange={e => setSmsGateway(e.target.value)} className="input-field w-40 text-sm">
                     <option>Twilio</option>
                     <option>MSG91</option>
                     <option>Fast2SMS</option>
@@ -415,7 +416,7 @@ const SettingsPage = () => {
                   <input value={mapsApi} onChange={e => setMapsApi(e.target.value)} placeholder="AIza••••••••••••••••••••••••••••" className="input-field w-72 text-sm font-mono" />
                 </SettingRow>
                 <SettingRow label="IoT Data Refresh Rate" sub="How often IoT dashboards pull new telemetry">
-                  <select className="input-field w-36 bg-zinc-900 text-sm">
+                  <select className="input-field w-36 text-sm">
                     <option value="5">Every 5s</option>
                     <option value="10">Every 10s</option>
                     <option value="30">Every 30s</option>

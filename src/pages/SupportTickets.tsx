@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   LifeBuoy, Search, Filter, Plus, MessageSquare, Clock,
   CheckCircle2, AlertCircle, MoreVertical, Tag, Send,
@@ -41,6 +41,9 @@ const SupportTickets = () => {
   const [activeTab, setActiveTab] = useState<'tickets' | 'categories' | 'kb' | 'reports'>('tickets');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterYear,   setFilterYear]   = useState('all');
+  const [filterMonth,  setFilterMonth]  = useState('all');
+  const [filterDate,   setFilterDate]   = useState('all');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [categories, setCategories] = useState<TicketCategory[]>([]);
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
@@ -69,12 +72,29 @@ const SupportTickets = () => {
     resolvedToday: tickets.filter(t => t.status === 'RESOLVED' && t.updatedAt.startsWith(new Date().toISOString().split('T')[0])).length,
   };
 
+  const ticketYears = useMemo(() => {
+    const ys = [...new Set(tickets.map(t => t.createdAt.slice(0, 4)).filter(Boolean))];
+    return ys.sort().reverse();
+  }, [tickets]);
+  const ticketMonths = useMemo(() => {
+    if (filterYear === 'all') return [];
+    return [...new Set(tickets.filter(t => t.createdAt.startsWith(filterYear)).map(t => t.createdAt.slice(0, 7)).filter(Boolean))].sort().reverse();
+  }, [tickets, filterYear]);
+  const ticketDates = useMemo(() => {
+    if (filterMonth === 'all') return [];
+    return [...new Set(tickets.filter(t => t.createdAt.startsWith(filterMonth)).map(t => t.createdAt.slice(0, 10)).filter(Boolean))].sort().reverse();
+  }, [tickets, filterMonth]);
+
   const filtered = tickets.filter(t => {
     const matchSearch = t.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchStatus = filterStatus === 'all' || t.status === filterStatus;
-    return matchSearch && matchStatus;
+    const d  = t.createdAt.slice(0, 10);
+    const my = filterYear  === 'all' || t.createdAt.startsWith(filterYear);
+    const mm = filterMonth === 'all' || t.createdAt.startsWith(filterMonth);
+    const md = filterDate  === 'all' || d === filterDate;
+    return matchSearch && matchStatus && my && mm && md;
   }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const handleSendMessage = () => {
@@ -230,15 +250,46 @@ const SupportTickets = () => {
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
             {/* Ticket List */}
             <div className={`xl:col-span-4 space-y-4 ${selectedTicket ? 'hidden xl:block' : ''}`}>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-                  <input type="text" placeholder="Search tickets..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:border-emerald-500/50 outline-none transition-all" />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <input type="text" placeholder="Search tickets..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:border-emerald-500/50 outline-none transition-all" />
+                  </div>
+                  <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                    className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs outline-none">
+                    {['all','OPEN','IN_PROGRESS','RESOLVED','CLOSED'].map(s => <option key={s} value={s}>{s === 'all' ? 'All Status' : s}</option>)}
+                  </select>
                 </div>
-                <button className="p-2.5 bg-white/5 border border-white/10 rounded-xl text-zinc-400 hover:text-emerald-500 transition-colors">
-                  <Filter size={18} />
-                </button>
+                {/* Date filters */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">Filter by:</span>
+                  <select value={filterYear} onChange={e => { setFilterYear(e.target.value); setFilterMonth('all'); setFilterDate('all'); }}
+                    className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs outline-none flex-1">
+                    <option value="all">All Years</option>
+                    {ticketYears.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                  {filterYear !== 'all' && (
+                    <select value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setFilterDate('all'); }}
+                      className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs outline-none flex-1">
+                      <option value="all">All Months</option>
+                      {ticketMonths.map(m => <option key={m} value={m}>{new Date(m + '-01').toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</option>)}
+                    </select>
+                  )}
+                  {filterMonth !== 'all' && (
+                    <select value={filterDate} onChange={e => setFilterDate(e.target.value)}
+                      className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs outline-none flex-1">
+                      <option value="all">All Dates</option>
+                      {ticketDates.map(d => <option key={d} value={d}>{new Date(d).toLocaleDateString('en-IN', { day: 'numeric', weekday: 'short', month: 'short' })}</option>)}
+                    </select>
+                  )}
+                  {(filterYear !== 'all' || filterMonth !== 'all' || filterDate !== 'all') && (
+                    <button onClick={() => { setFilterYear('all'); setFilterMonth('all'); setFilterDate('all'); }}
+                      className="px-2 py-1 rounded-lg bg-red-500/10 text-red-400 text-[10px] font-bold">✕</button>
+                  )}
+                </div>
+                <p className="text-[10px] text-zinc-600 px-1">{filtered.length} tickets</p>
               </div>
 
               <div className="space-y-3 max-h-[700px] overflow-y-auto pr-2 custom-scrollbar">

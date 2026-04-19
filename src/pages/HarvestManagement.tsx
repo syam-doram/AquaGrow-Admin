@@ -640,6 +640,9 @@ const HarvestManagement = () => {
   const [lastSync, setLastSync]   = useState<string | null>(null);
   const [search, setSearch]     = useState('');
   const [filterStage, setFilterStage] = useState<'all' | HarvestStage>('all');
+  const [filterYear,  setFilterYear]  = useState('all');
+  const [filterMonth, setFilterMonth] = useState('all');
+  const [filterDate,  setFilterDate]  = useState('all');
   const [selected, setSelected] = useState<string | null>(null);    // harvest _id
   const [advancing, setAdvancing] = useState(false);
   // Chat messages keyed by harvestId
@@ -683,14 +686,34 @@ const HarvestManagement = () => {
     };
   }, [enriched]);
 
+  // Date filter helpers
+  const harvestYears = useMemo(() => {
+    const ys = [...new Set(enriched.map(h => (h.createdAt ?? '').slice(0, 4)).filter(Boolean))];
+    return ys.sort().reverse();
+  }, [enriched]);
+  const harvestMonths = useMemo(() => {
+    if (filterYear === 'all') return [];
+    const ms = [...new Set(enriched.filter(h => (h.createdAt ?? '').startsWith(filterYear)).map(h => (h.createdAt ?? '').slice(0, 7)).filter(Boolean))];
+    return ms.sort().reverse();
+  }, [enriched, filterYear]);
+  const harvestDates = useMemo(() => {
+    if (filterMonth === 'all') return [];
+    const ds = [...new Set(enriched.filter(h => (h.createdAt ?? '').startsWith(filterMonth)).map(h => (h.createdAt ?? '').slice(0, 10)).filter(Boolean))];
+    return ds.sort().reverse();
+  }, [enriched, filterMonth]);
+
   // Filtered
   const filtered = useMemo(() => enriched.filter(h => {
     const ms = [h._farmer?.name, h._pond?.name, h._id.slice(-6)].some(s =>
       s?.toLowerCase().includes(search.toLowerCase())
     );
     const mf = filterStage === 'all' || h.status === filterStage;
-    return ms && mf;
-  }), [enriched, search, filterStage]);
+    const d  = h.createdAt ?? '';
+    const my = filterYear  === 'all' || d.startsWith(filterYear);
+    const mm = filterMonth === 'all' || d.startsWith(filterMonth);
+    const md = filterDate  === 'all' || d.slice(0, 10) === filterDate;
+    return ms && mf && my && mm && md;
+  }), [enriched, search, filterStage, filterYear, filterMonth, filterDate]);
 
   const selectedHarvest = useMemo(() => enriched.find(h => h._id === selected), [enriched, selected]);
 
@@ -764,12 +787,13 @@ const HarvestManagement = () => {
         {/* Left: Harvest list */}
         <div className="flex-1 min-w-0 space-y-4">
           {/* Filters */}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <div className="relative flex-1 min-w-44">
               <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500"/>
               <input className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/50"
                 placeholder="Search farmer, pond..." value={search} onChange={e => setSearch(e.target.value)}/>
             </div>
+            {/* Stage filter */}
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
               <Filter size={13} className="text-zinc-500"/>
               <select value={filterStage} onChange={e => setFilterStage(e.target.value as any)} className="bg-transparent outline-none text-sm">
@@ -778,6 +802,38 @@ const HarvestManagement = () => {
                 <option value="rejected">Rejected</option>
               </select>
             </div>
+            {/* Year filter */}
+            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+              <span className="text-zinc-500 text-xs font-bold">📅</span>
+              <select value={filterYear} onChange={e => { setFilterYear(e.target.value); setFilterMonth('all'); setFilterDate('all'); }} className="bg-transparent outline-none text-sm">
+                <option value="all">All Years</option>
+                {harvestYears.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            {/* Month filter */}
+            {filterYear !== 'all' && (
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                <select value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setFilterDate('all'); }} className="bg-transparent outline-none text-sm">
+                  <option value="all">All Months</option>
+                  {harvestMonths.map(m => <option key={m} value={m}>{new Date(m + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</option>)}
+                </select>
+              </div>
+            )}
+            {/* Date filter */}
+            {filterMonth !== 'all' && (
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                <select value={filterDate} onChange={e => setFilterDate(e.target.value)} className="bg-transparent outline-none text-sm">
+                  <option value="all">All Dates</option>
+                  {harvestDates.map(d => <option key={d} value={d}>{new Date(d).toLocaleDateString('en-IN', { day: 'numeric', weekday: 'short' })}</option>)}
+                </select>
+              </div>
+            )}
+            {/* Clear date filters */}
+            {(filterYear !== 'all' || filterMonth !== 'all' || filterDate !== 'all') && (
+              <button onClick={() => { setFilterYear('all'); setFilterMonth('all'); setFilterDate('all'); }}
+                className="px-3 py-2 rounded-xl bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-all">✕ Clear</button>
+            )}
+            <p className="flex items-center text-xs text-zinc-500 px-1">{filtered.length} harvests</p>
           </div>
 
           {/* Pipeline kanban (compact) */}

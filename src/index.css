@@ -16,10 +16,10 @@
   --color-emerald-300: #6ee7b7;
   --color-emerald-200: #a7f3d0;
   --color-emerald-100: #d1fae5;
-  --color-emerald-50:  #ecfdf5;
+  --color-emerald-50: #ecfdf5;
 
   --color-radiant-gold: #fbbf24;
-  --color-radiant-sun:  #f59e0b;
+  --color-radiant-sun: #f59e0b;
 }
 
 @layer base {
@@ -27,7 +27,12 @@
     @apply font-sans antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-display tracking-tight;
   }
 }
@@ -35,44 +40,44 @@
 /* ─── Dark Mode Tokens (default) ─────────────────────────────────────────── */
 :root,
 html.dark {
-  --bg-base:         #09090b;
-  --bg-surface:      #18181b;
-  --bg-surface-2:    rgba(255,255,255,0.05);
-  --bg-hover:        rgba(255,255,255,0.08);
-  --border-subtle:   rgba(255,255,255,0.07);
-  --border-default:  rgba(255,255,255,0.12);
-  --text-primary:    #f4f4f5;
-  --text-secondary:  #a1a1aa;
-  --text-muted:      #52525b;
-  --sidebar-bg:      rgba(24,24,27,0.80);
-  --header-bg:       rgba(9,9,11,0.70);
+  --bg-base: #09090b;
+  --bg-surface: #18181b;
+  --bg-surface-2: rgba(255, 255, 255, 0.05);
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-default: rgba(255, 255, 255, 0.12);
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-muted: #52525b;
+  --sidebar-bg: rgba(24, 24, 27, 0.80);
+  --header-bg: rgba(9, 9, 11, 0.70);
   --scrollbar-track: #18181b;
-  --scrollbar-thumb: rgba(5,150,105,0.35);
-  --input-bg:        rgba(255,255,255,0.05);
-  --avatar-bg:       #18181b;
-  --glass-bg:        rgba(255,255,255,0.05);
-  --glass-border:    rgba(255,255,255,0.10);
+  --scrollbar-thumb: rgba(5, 150, 105, 0.35);
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --avatar-bg: #18181b;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.10);
 }
 
 /* ─── Light Mode Tokens ───────────────────────────────────────────────────── */
 html.light {
-  --bg-base:         #f0fdf4;
-  --bg-surface:      #ffffff;
-  --bg-surface-2:    rgba(0,0,0,0.04);
-  --bg-hover:        rgba(0,0,0,0.07);
-  --border-subtle:   rgba(0,0,0,0.06);
-  --border-default:  rgba(0,0,0,0.12);
-  --text-primary:    #18181b;
-  --text-secondary:  #52525b;
-  --text-muted:      #a1a1aa;
-  --sidebar-bg:      rgba(255,255,255,0.90);
-  --header-bg:       rgba(240,253,244,0.90);
+  --bg-base: #f0fdf4;
+  --bg-surface: #ffffff;
+  --bg-surface-2: rgba(0, 0, 0, 0.035);
+  --bg-hover: rgba(0, 0, 0, 0.06);
+  --border-subtle: rgba(0, 0, 0, 0.07);
+  --border-default: rgba(0, 0, 0, 0.12);
+  --text-primary: #18181b;
+  --text-secondary: #52525b;
+  --text-muted: #a1a1aa;
+  --sidebar-bg: rgba(255, 255, 255, 0.95);
+  --header-bg: rgba(255, 255, 255, 0.88);
   --scrollbar-track: #e4e4e7;
-  --scrollbar-thumb: rgba(5,150,105,0.40);
-  --input-bg:        rgba(0,0,0,0.04);
-  --avatar-bg:       #ecfdf5;
-  --glass-bg:        rgba(255,255,255,0.75);
-  --glass-border:    rgba(0,0,0,0.10);
+  --scrollbar-thumb: rgba(5, 150, 105, 0.35);
+  --input-bg: rgba(0, 0, 0, 0.04);
+  --avatar-bg: #ecfdf5;
+  --glass-bg: rgba(255, 255, 255, 0.80);
+  --glass-border: rgba(0, 0, 0, 0.09);
 }
 
 /* ─── Global ──────────────────────────────────────────────────────────────── */
@@ -119,8 +124,13 @@ body {
     cursor: pointer;
   }
 
-  .btn-primary:hover  { background-color: var(--color-emerald-500); }
-  .btn-primary:active { transform: scale(0.95); }
+  .btn-primary:hover {
+    background-color: var(--color-emerald-500);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.95);
+  }
 
   .btn-secondary {
     background-color: var(--bg-surface-2);
@@ -133,8 +143,13 @@ body {
     cursor: pointer;
   }
 
-  .btn-secondary:hover  { background-color: var(--bg-hover); }
-  .btn-secondary:active { transform: scale(0.95); }
+  .btn-secondary:hover {
+    background-color: var(--bg-hover);
+  }
+
+  .btn-secondary:active {
+    transform: scale(0.95);
+  }
 
   .input-field {
     background-color: var(--input-bg);
@@ -145,16 +160,52 @@ body {
     transition: all 0.2s;
   }
 
-  .input-field::placeholder { color: var(--text-muted); }
+  .input-field::placeholder {
+    color: var(--text-muted);
+  }
 
   .input-field:focus {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(16,185,129,0.45);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.45);
+  }
+
+  /* Alias for glass-panel used in some pages as .card */
+  .card {
+    background-color: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 1rem;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
+
+  /* Light mode overrides for glass panels */
+  html.light .glass-panel {
+    background-color: rgba(255, 255, 255, 0.85);
+    border-color: rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  html.light .card {
+    background-color: rgba(255, 255, 255, 0.9);
+    border-color: rgba(0, 0, 0, 0.07);
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.05);
+  }
+
+  /* ─── Custom Scrollbar ────────────────────────────────────────────────────── */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(5, 150, 105, 0.6);
   }
 }
-
-/* ─── Custom Scrollbar ────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track  { background: var(--scrollbar-track); }
-::-webkit-scrollbar-thumb  { background: var(--scrollbar-thumb); border-radius: 9999px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(5,150,105,0.6); }

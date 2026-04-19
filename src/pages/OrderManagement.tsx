@@ -170,6 +170,9 @@ const OrderManagement = () => {
   const [fStatus, setFStatus] = useState<string>('all');
   const [fPay,    setFPay]    = useState<string>('all');
   const [fCat,    setFCat]    = useState<string>('all');
+  const [fYear,   setFYear]   = useState('all');
+  const [fMonth,  setFMonth]  = useState('all');
+  const [fDate,   setFDate]   = useState('all');
 
   // Detail panel
   const [selected, setSelected] = useState<ShopOrder | null>(null);
@@ -233,6 +236,20 @@ const OrderManagement = () => {
     };
   }, [orders]);
 
+  // ── Date filter helpers ────────────────────────────────────────────────────
+  const orderYears = useMemo(() => {
+    const ys = [...new Set(orders.map(o => o.createdAt.slice(0, 4)).filter(Boolean))];
+    return ys.sort().reverse();
+  }, [orders]);
+  const orderMonths = useMemo(() => {
+    if (fYear === 'all') return [];
+    return [...new Set(orders.filter(o => o.createdAt.startsWith(fYear)).map(o => o.createdAt.slice(0, 7)).filter(Boolean))].sort().reverse();
+  }, [orders, fYear]);
+  const orderDates = useMemo(() => {
+    if (fMonth === 'all') return [];
+    return [...new Set(orders.filter(o => o.createdAt.startsWith(fMonth)).map(o => o.createdAt.slice(0, 10)).filter(Boolean))].sort().reverse();
+  }, [orders, fMonth]);
+
   // ── Filtered orders ────────────────────────────────────────────────────────
   const filtered = useMemo(() => orders.filter(o => {
     const ms = o.farmerName.toLowerCase().includes(search.toLowerCase())
@@ -240,8 +257,12 @@ const OrderManagement = () => {
     const mst = fStatus === 'all' || o.status === fStatus;
     const mpa = fPay === 'all' || o.paymentStatus === fPay;
     const mca = fCat === 'all' || o.items.some(i => i.category === fCat);
-    return ms && mst && mpa && mca;
-  }), [orders, search, fStatus, fPay, fCat]);
+    const d   = o.createdAt;
+    const my  = fYear  === 'all' || d.startsWith(fYear);
+    const mm  = fMonth === 'all' || d.startsWith(fMonth);
+    const md  = fDate  === 'all' || d.slice(0, 10) === fDate;
+    return ms && mst && mpa && mca && my && mm && md;
+  }), [orders, search, fStatus, fPay, fCat, fYear, fMonth, fDate]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
   const advanceStatus = async (order: ShopOrder) => {
@@ -521,7 +542,7 @@ const OrderManagement = () => {
       {tab === 'orders' && (
         <div className="space-y-5">
           {/* Filter bar */}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <div className="relative flex-1 min-w-48">
               <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
               <input type="text" placeholder="Search order ID or farmer..." className="input-field w-full pl-11" value={search} onChange={e => setSearch(e.target.value)} />
@@ -538,6 +559,36 @@ const OrderManagement = () => {
                 </select>
               </div>
             ))}
+            {/* Year */}
+            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+              <span className="text-zinc-500 text-xs">📅</span>
+              <select value={fYear} onChange={e => { setFYear(e.target.value); setFMonth('all'); setFDate('all'); }} className="bg-transparent outline-none text-sm">
+                <option value="all">All Years</option>
+                {orderYears.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            {/* Month */}
+            {fYear !== 'all' && (
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                <select value={fMonth} onChange={e => { setFMonth(e.target.value); setFDate('all'); }} className="bg-transparent outline-none text-sm">
+                  <option value="all">All Months</option>
+                  {orderMonths.map(m => <option key={m} value={m}>{new Date(m + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</option>)}
+                </select>
+              </div>
+            )}
+            {/* Date */}
+            {fMonth !== 'all' && (
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                <select value={fDate} onChange={e => setFDate(e.target.value)} className="bg-transparent outline-none text-sm">
+                  <option value="all">All Dates</option>
+                  {orderDates.map(d => <option key={d} value={d}>{new Date(d).toLocaleDateString('en-IN', { day: 'numeric', weekday: 'short', month: 'short' })}</option>)}
+                </select>
+              </div>
+            )}
+            {(fYear !== 'all' || fMonth !== 'all' || fDate !== 'all') && (
+              <button onClick={() => { setFYear('all'); setFMonth('all'); setFDate('all'); }}
+                className="px-3 py-2 rounded-xl bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-all">✕ Clear</button>
+            )}
             <p className="flex items-center text-xs text-zinc-500 px-2">{filtered.length} orders</p>
           </div>
 
