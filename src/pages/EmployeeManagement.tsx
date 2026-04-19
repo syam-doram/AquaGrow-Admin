@@ -16,7 +16,23 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type EmployeeRole = 'SALES_EXECUTIVE' | 'FIELD_TECHNICIAN' | 'IOT_SPECIALIST' | 'FIELD_OFFICER' | 'ADMIN';
+type EmployeeRole =
+  // Sales / Growth
+  | 'SALES_EXECUTIVE' | 'FIELD_OFFICER' | 'DIGITAL_MARKETING'
+  // Tech
+  | 'BACKEND_DEV' | 'FRONTEND_DEV' | 'IOT_ENGINEER' | 'QA_TESTER'
+  // Field
+  | 'FIELD_TECHNICIAN' | 'IOT_SPECIALIST'
+  // Operations
+  | 'OPS_MANAGER' | 'ORDER_EXEC' | 'DISPATCH_EXEC'
+  // Warehouse
+  | 'WAREHOUSE_MANAGER' | 'INVENTORY_CTRL' | 'PICKER_PACKER'
+  // Logistics
+  | 'DELIVERY_COORD' | 'DELIVERY_AGENT'
+  // Support
+  | 'SUPPORT_EXEC' | 'AQUA_EXPERT'
+  // Admin
+  | 'ADMIN';
 type EmpStatus = 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE';
 type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE';
 type ExpenseStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -110,12 +126,31 @@ interface Training {
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 
 const SEED_EMPLOYEES: Employee[] = [
-  { id: 'E001', name: 'Ravi Kumar', phone: '+91 98765 43210', email: 'ravi@aquagrow.in', empId: 'AG-001', role: 'SALES_EXECUTIVE', area: 'Nellore Central', district: 'Nellore', joiningDate: '2023-03-15', status: 'ACTIVE', avatar: 'RK', salary: 28000, reportingTo: 'Admin' },
-  { id: 'E002', name: 'Priya Sharma', phone: '+91 87654 32109', email: 'priya@aquagrow.in', empId: 'AG-002', role: 'FIELD_TECHNICIAN', area: 'Kavali Mandal', district: 'Nellore', joiningDate: '2023-06-01', status: 'ACTIVE', avatar: 'PS', salary: 24000, reportingTo: 'Admin' },
-  { id: 'E003', name: 'Suresh Babu', phone: '+91 76543 21098', email: 'suresh@aquagrow.in', empId: 'AG-003', role: 'IOT_SPECIALIST', area: 'Ongole Zone', district: 'Prakasam', joiningDate: '2023-01-10', status: 'ACTIVE', avatar: 'SB', salary: 32000, reportingTo: 'Admin' },
-  { id: 'E004', name: 'Anitha Reddy', phone: '+91 65432 10987', email: 'anitha@aquagrow.in', empId: 'AG-004', role: 'FIELD_OFFICER', area: 'Chirala Belt', district: 'Bapatla', joiningDate: '2023-09-20', status: 'ACTIVE', avatar: 'AR', salary: 22000, reportingTo: 'Admin' },
-  { id: 'E005', name: 'Venkat Rao', phone: '+91 54321 09876', email: 'venkat@aquagrow.in', empId: 'AG-005', role: 'SALES_EXECUTIVE', area: 'Bhimavaram', district: 'West Godavari', joiningDate: '2024-01-05', status: 'INACTIVE', avatar: 'VR', salary: 26000, reportingTo: 'Admin' },
-  { id: 'E006', name: 'Lakshmi Devi', phone: '+91 43210 98765', email: 'lakshmi@aquagrow.in', empId: 'AG-006', role: 'FIELD_TECHNICIAN', area: 'Narasapur', district: 'West Godavari', joiningDate: '2024-03-12', status: 'ON_LEAVE', avatar: 'LD', salary: 23000, reportingTo: 'Admin' },
+  { id: 'E001', name: 'Ravi Kumar',    phone: '+91 98765 43210', email: 'ravi@aquagrow.in',    empId: 'AG-001', role: 'SALES_EXECUTIVE',   area: 'Nellore Central',  district: 'Nellore',       joiningDate: '2023-03-15', status: 'ACTIVE',   avatar: 'RK', salary: 28000, reportingTo: 'Admin' },
+  { id: 'E002', name: 'Priya Sharma',  phone: '+91 87654 32109', email: 'priya@aquagrow.in',   empId: 'AG-002', role: 'FIELD_TECHNICIAN', area: 'Kavali Mandal',     district: 'Nellore',       joiningDate: '2023-06-01', status: 'ACTIVE',   avatar: 'PS', salary: 24000, reportingTo: 'Admin' },
+  { id: 'E003', name: 'Suresh Babu',   phone: '+91 76543 21098', email: 'suresh@aquagrow.in',  empId: 'AG-003', role: 'IOT_SPECIALIST',   area: 'Ongole Zone',       district: 'Prakasam',      joiningDate: '2023-01-10', status: 'ACTIVE',   avatar: 'SB', salary: 32000, reportingTo: 'Admin' },
+  { id: 'E004', name: 'Anitha Reddy',  phone: '+91 65432 10987', email: 'anitha@aquagrow.in',  empId: 'AG-004', role: 'FIELD_OFFICER',    area: 'Chirala Belt',      district: 'Bapatla',       joiningDate: '2023-09-20', status: 'ACTIVE',   avatar: 'AR', salary: 22000, reportingTo: 'Admin' },
+  { id: 'E005', name: 'Venkat Rao',    phone: '+91 54321 09876', email: 'venkat@aquagrow.in',  empId: 'AG-005', role: 'SALES_EXECUTIVE',  area: 'Bhimavaram',        district: 'West Godavari', joiningDate: '2024-01-05', status: 'INACTIVE', avatar: 'VR', salary: 26000, reportingTo: 'Admin' },
+  { id: 'E006', name: 'Lakshmi Devi',  phone: '+91 43210 98765', email: 'lakshmi@aquagrow.in', empId: 'AG-006', role: 'FIELD_TECHNICIAN', area: 'Narasapur',         district: 'West Godavari', joiningDate: '2024-03-12', status: 'ON_LEAVE', avatar: 'LD', salary: 23000, reportingTo: 'Admin' },
+  // Operations Team
+  { id: 'E007', name: 'Kiran Reddy',   phone: '+91 90001 11001', email: 'kiran@aquagrow.in',   empId: 'AG-007', role: 'OPS_MANAGER',      area: 'HQ - Hyderabad',    district: 'Hyderabad',     joiningDate: '2022-11-01', status: 'ACTIVE',   avatar: 'KR', salary: 55000, reportingTo: 'CEO' },
+  { id: 'E008', name: 'Meena Kumari',  phone: '+91 90001 22002', email: 'meena@aquagrow.in',   empId: 'AG-008', role: 'ORDER_EXEC',       area: 'HQ - Hyderabad',    district: 'Hyderabad',     joiningDate: '2023-08-15', status: 'ACTIVE',   avatar: 'MK', salary: 28000, reportingTo: 'Kiran Reddy' },
+  { id: 'E009', name: 'Arun Prasad',   phone: '+91 90001 33003', email: 'arun@aquagrow.in',    empId: 'AG-009', role: 'DISPATCH_EXEC',    area: 'HQ - Hyderabad',    district: 'Hyderabad',     joiningDate: '2023-10-01', status: 'ACTIVE',   avatar: 'AP', salary: 24000, reportingTo: 'Kiran Reddy' },
+  // Warehouse Team
+  { id: 'E010', name: 'Satish Goud',   phone: '+91 90002 11001', email: 'satish@aquagrow.in',  empId: 'AG-010', role: 'WAREHOUSE_MANAGER',area: 'Vijayawada WH',     district: 'Krishna',       joiningDate: '2023-02-01', status: 'ACTIVE',   avatar: 'SG', salary: 38000, reportingTo: 'Kiran Reddy' },
+  { id: 'E011', name: 'Rupa Devi',     phone: '+91 90002 22002', email: 'rupa@aquagrow.in',    empId: 'AG-011', role: 'INVENTORY_CTRL',   area: 'Vijayawada WH',     district: 'Krishna',       joiningDate: '2023-02-15', status: 'ACTIVE',   avatar: 'RD', salary: 26000, reportingTo: 'Satish Goud' },
+  { id: 'E012', name: 'Balu Naidu',    phone: '+91 90002 33003', email: 'balu@aquagrow.in',    empId: 'AG-012', role: 'PICKER_PACKER',    area: 'Nellore WH',        district: 'Nellore',       joiningDate: '2023-05-01', status: 'ACTIVE',   avatar: 'BN', salary: 18000, reportingTo: 'Satish Goud' },
+  // Logistics Team
+  { id: 'E013', name: 'Srinivas Rao',  phone: '+91 90003 11001', email: 'srini@aquagrow.in',   empId: 'AG-013', role: 'DELIVERY_COORD',   area: 'AP Zone',           district: 'Guntur',        joiningDate: '2023-07-01', status: 'ACTIVE',   avatar: 'SR', salary: 30000, reportingTo: 'Kiran Reddy' },
+  { id: 'E014', name: 'Ramesh Dora',   phone: '+91 90003 22002', email: 'ramesh@aquagrow.in',  empId: 'AG-014', role: 'DELIVERY_AGENT',   area: 'Kavali–Nellore',    district: 'Nellore',       joiningDate: '2023-09-10', status: 'ACTIVE',   avatar: 'RD', salary: 16000, reportingTo: 'Srinivas Rao' },
+  // Support Team
+  { id: 'E015', name: 'Divya Sri',     phone: '+91 90004 11001', email: 'divya@aquagrow.in',   empId: 'AG-015', role: 'SUPPORT_EXEC',     area: 'Remote / HQ',       district: 'Hyderabad',     joiningDate: '2023-04-01', status: 'ACTIVE',   avatar: 'DS', salary: 25000, reportingTo: 'Admin' },
+  { id: 'E016', name: 'Dr. Gopi Raju', phone: '+91 90004 22002', email: 'gopi@aquagrow.in',    empId: 'AG-016', role: 'AQUA_EXPERT',      area: 'Remote / HQ',       district: 'Hyderabad',     joiningDate: '2022-06-01', status: 'ACTIVE',   avatar: 'GR', salary: 52000, reportingTo: 'Admin' },
+  // Tech Team
+  { id: 'E017', name: 'Tarun Khanna',  phone: '+91 90005 11001', email: 'tarun@aquagrow.in',   empId: 'AG-017', role: 'BACKEND_DEV',      area: 'Remote / Pune',     district: 'Pune',          joiningDate: '2023-01-15', status: 'ACTIVE',   avatar: 'TK', salary: 70000, reportingTo: 'Admin' },
+  { id: 'E018', name: 'Pooja Menon',   phone: '+91 90005 22002', email: 'pooja@aquagrow.in',   empId: 'AG-018', role: 'FRONTEND_DEV',     area: 'Remote / Bangalore',district: 'Bangalore',     joiningDate: '2023-03-01', status: 'ACTIVE',   avatar: 'PM', salary: 65000, reportingTo: 'Admin' },
+  { id: 'E019', name: 'Raj Patel',     phone: '+91 90005 33003', email: 'raj@aquagrow.in',     empId: 'AG-019', role: 'IOT_ENGINEER',     area: 'Remote / Bangalore',district: 'Bangalore',     joiningDate: '2023-06-01', status: 'ACTIVE',   avatar: 'RP', salary: 68000, reportingTo: 'Admin' },
+  { id: 'E020', name: 'Nisha Varma',   phone: '+91 90005 44004', email: 'nisha@aquagrow.in',   empId: 'AG-020', role: 'QA_TESTER',        area: 'Remote / Hyderabad',district: 'Hyderabad',     joiningDate: '2023-07-01', status: 'ACTIVE',   avatar: 'NV', salary: 40000, reportingTo: 'Admin' },
 ];
 
 const SEED_TARGETS: Target[] = [
@@ -180,12 +215,35 @@ const performanceData = [
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const ROLE_META: Record<EmployeeRole, { label: string; color: string; icon: React.ReactNode }> = {
-  SALES_EXECUTIVE: { label: 'Sales Executive', color: 'text-blue-400 bg-blue-500/10', icon: <TrendingUp size={10} /> },
-  FIELD_TECHNICIAN: { label: 'Field Technician', color: 'text-orange-400 bg-orange-500/10', icon: <Briefcase size={10} /> },
-  IOT_SPECIALIST: { label: 'IoT Specialist', color: 'text-purple-400 bg-purple-500/10', icon: <RadioTower size={10} /> },
-  FIELD_OFFICER: { label: 'Field Officer', color: 'text-emerald-400 bg-emerald-500/10', icon: <Map size={10} /> },
-  ADMIN: { label: 'Admin', color: 'text-red-400 bg-red-500/10', icon: <Shield size={10} /> },
+const ROLE_META: Record<EmployeeRole, { label: string; color: string; icon: React.ReactNode; team: string }> = {
+  // Growth / Sales
+  SALES_EXECUTIVE:  { label: 'Sales Executive',    color: 'text-blue-400 bg-blue-500/10',    icon: <TrendingUp size={10} />,  team: 'Growth & Sales' },
+  FIELD_OFFICER:    { label: 'Field Officer',       color: 'text-emerald-400 bg-emerald-500/10', icon: <Map size={10} />,        team: 'Growth & Sales' },
+  DIGITAL_MARKETING:{ label: 'Digital Marketing',  color: 'text-sky-400 bg-sky-500/10',      icon: <Zap size={10} />,         team: 'Growth & Sales' },
+  // Tech
+  BACKEND_DEV:      { label: 'Backend Dev',         color: 'text-violet-400 bg-violet-500/10',icon: <RadioTower size={10} />,  team: 'Tech' },
+  FRONTEND_DEV:     { label: 'Frontend Dev',        color: 'text-purple-400 bg-purple-500/10',icon: <RadioTower size={10} />,  team: 'Tech' },
+  IOT_ENGINEER:     { label: 'IoT Engineer',        color: 'text-indigo-400 bg-indigo-500/10',icon: <RadioTower size={10} />,  team: 'Tech' },
+  QA_TESTER:        { label: 'QA Tester',           color: 'text-fuchsia-400 bg-fuchsia-500/10', icon: <Shield size={10} />,    team: 'Tech' },
+  // Field
+  FIELD_TECHNICIAN: { label: 'Field Technician',   color: 'text-orange-400 bg-orange-500/10',icon: <Briefcase size={10} />,   team: 'Growth & Sales' },
+  IOT_SPECIALIST:   { label: 'IoT Specialist',      color: 'text-purple-400 bg-purple-500/10',icon: <RadioTower size={10} />,  team: 'Tech' },
+  // Operations
+  OPS_MANAGER:      { label: 'Ops Manager',         color: 'text-red-400 bg-red-500/10',      icon: <Shield size={10} />,      team: 'Operations' },
+  ORDER_EXEC:       { label: 'Order Executive',     color: 'text-rose-400 bg-rose-500/10',    icon: <ClipboardList size={10} />, team: 'Operations' },
+  DISPATCH_EXEC:    { label: 'Dispatch Executive',  color: 'text-pink-400 bg-pink-500/10',    icon: <Navigation size={10} />,  team: 'Operations' },
+  // Warehouse
+  WAREHOUSE_MANAGER:{ label: 'Warehouse Manager',  color: 'text-amber-400 bg-amber-500/10',  icon: <Briefcase size={10} />,   team: 'Warehouse' },
+  INVENTORY_CTRL:   { label: 'Inventory Controller',color: 'text-yellow-400 bg-yellow-500/10',icon: <ClipboardList size={10} />, team: 'Warehouse' },
+  PICKER_PACKER:    { label: 'Picker / Packer',    color: 'text-lime-400 bg-lime-500/10',    icon: <Briefcase size={10} />,   team: 'Warehouse' },
+  // Logistics
+  DELIVERY_COORD:   { label: 'Delivery Coordinator',color: 'text-teal-400 bg-teal-500/10',   icon: <Navigation size={10} />,  team: 'Logistics' },
+  DELIVERY_AGENT:   { label: 'Delivery Agent',      color: 'text-cyan-400 bg-cyan-500/10',    icon: <MapPin size={10} />,      team: 'Logistics' },
+  // Support
+  SUPPORT_EXEC:     { label: 'Support Executive',  color: 'text-green-400 bg-green-500/10',  icon: <Phone size={10} />,       team: 'Customer Support' },
+  AQUA_EXPERT:      { label: 'Aquaculture Expert',  color: 'text-emerald-300 bg-emerald-300/10', icon: <Star size={10} />,     team: 'Customer Support' },
+  // Admin
+  ADMIN:            { label: 'Admin',               color: 'text-red-400 bg-red-500/10',      icon: <Shield size={10} />,      team: 'Operations' },
 };
 
 const STATUS_META: Record<EmpStatus, { label: string; dot: string }> = {
@@ -365,19 +423,66 @@ const ExpenseRow = ({ exp, empName, onApprove, onReject }: {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const MAIN_TABS = [
-  { id: 'overview', label: 'Overview', icon: <Users size={14} /> },
-  { id: 'targets', label: 'Targets', icon: <Target size={14} /> },
-  { id: 'visits', label: 'Field Visits', icon: <MapPin size={14} /> },
-  { id: 'attendance', label: 'Attendance', icon: <CheckCircle size={14} /> },
-  { id: 'tasks', label: 'Tasks', icon: <ClipboardList size={14} /> },
-  { id: 'expenses', label: 'Expenses', icon: <Wallet size={14} /> },
-  { id: 'incentives', label: 'Incentives', icon: <Award size={14} /> },
-  { id: 'training', label: 'Training', icon: <BookOpen size={14} /> },
-  { id: 'analytics', label: 'Analytics', icon: <BarChart2 size={14} /> },
+  { id: 'teams',      label: 'Teams',        icon: <Users size={14} /> },
+  { id: 'overview',  label: 'All Staff',     icon: <UserCheck size={14} /> },
+  { id: 'targets',   label: 'Targets',       icon: <Target size={14} /> },
+  { id: 'visits',    label: 'Field Visits',  icon: <MapPin size={14} /> },
+  { id: 'attendance',label: 'Attendance',    icon: <CheckCircle size={14} /> },
+  { id: 'tasks',     label: 'Tasks',         icon: <ClipboardList size={14} /> },
+  { id: 'expenses',  label: 'Expenses',      icon: <Wallet size={14} /> },
+  { id: 'incentives',label: 'Incentives',    icon: <Award size={14} /> },
+  { id: 'training',  label: 'Training',      icon: <BookOpen size={14} /> },
+  { id: 'analytics', label: 'Analytics',     icon: <BarChart2 size={14} /> },
 ];
 
+// ─── 6-Team Structure ─────────────────────────────────────────────────────────
+const TEAM_CONFIG = [
+  {
+    id: 'operations', name: 'Operations Team', emoji: '🧠', subtitle: 'Backbone — Order to Delivery',
+    gradient: 'from-red-500/10 to-rose-500/5', border: 'border-red-500/20', accent: 'text-red-400',
+    roles: ['OPS_MANAGER', 'ORDER_EXEC', 'DISPATCH_EXEC'],
+    dailyTasks: ['Order verification & confirmation', 'Complete flow control (order → delivery)', 'Issue resolution & escalation', 'Warehouse & logistics coordination', 'Dispatch assign & tracking'],
+    kpis: ['Orders confirmed / day', 'Issue resolution time', 'SLA compliance %'],
+  },
+  {
+    id: 'warehouse', name: 'Warehouse Team', emoji: '📦', subtitle: 'Physical product handling',
+    gradient: 'from-amber-500/10 to-yellow-500/5', border: 'border-amber-500/20', accent: 'text-amber-400',
+    roles: ['WAREHOUSE_MANAGER', 'INVENTORY_CTRL', 'PICKER_PACKER'],
+    dailyTasks: ['Stock update (in/out) every morning', 'Medicine expiry check (daily)', 'Batch number verification', 'Packing accuracy check before dispatch', 'Cold storage monitoring'],
+    kpis: ['Stock accuracy %', 'Pack error rate', 'Expiry alerts cleared'],
+  },
+  {
+    id: 'logistics', name: 'Logistics Team', emoji: '🚚', subtitle: 'Last-mile delivery management',
+    gradient: 'from-teal-500/10 to-cyan-500/5', border: 'border-teal-500/20', accent: 'text-teal-400',
+    roles: ['DELIVERY_COORD', 'DELIVERY_AGENT'],
+    dailyTasks: ['Route planning for the day', 'Delivery status update every 2h', 'Farmer confirmation on delivery', 'Rural manual delivery tracking', 'Failed delivery rescheduling'],
+    kpis: ['On-time delivery %', 'Failed delivery rate', 'Avg delivery time (hrs)'],
+  },
+  {
+    id: 'support', name: 'Customer Support', emoji: '📞', subtitle: 'Most important for farmer trust',
+    gradient: 'from-green-500/10 to-emerald-500/5', border: 'border-green-500/20', accent: 'text-green-400',
+    roles: ['SUPPORT_EXEC', 'AQUA_EXPERT'],
+    dailyTasks: ['Product usage guidance to farmers', 'Ticket resolution (call/chat)', 'Farmer guidance (oxygen, feed, disease)', 'Escalate complex issues to Aqua Expert', 'Pond condition review from app logs'],
+    kpis: ['Tickets resolved / day', 'CSAT score', 'Avg first response time'],
+  },
+  {
+    id: 'tech', name: 'Tech Team', emoji: '💻', subtitle: 'Critical for platform stability',
+    gradient: 'from-violet-500/10 to-purple-500/5', border: 'border-violet-500/20', accent: 'text-violet-400',
+    roles: ['BACKEND_DEV', 'FRONTEND_DEV', 'IOT_ENGINEER', 'QA_TESTER'],
+    dailyTasks: ['App maintenance & bug fixes', 'Notification pipeline health check', 'IoT device connectivity monitoring', 'Release testing & QA sign-off', 'API uptime monitoring'],
+    kpis: ['App uptime %', 'Bug resolution SLA', 'IoT device online rate'],
+  },
+  {
+    id: 'growth', name: 'Growth & Sales', emoji: '📊', subtitle: 'Farmer acquisition & product awareness',
+    gradient: 'from-blue-500/10 to-sky-500/5', border: 'border-blue-500/20', accent: 'text-blue-400',
+    roles: ['SALES_EXECUTIVE', 'FIELD_OFFICER', 'FIELD_TECHNICIAN', 'DIGITAL_MARKETING'],
+    dailyTasks: ['Farmer onboarding visits (5 per week)', 'Product demo at farms', 'Local market awareness drives', 'AquaShop order follow-up', 'Social media & WhatsApp campaigns'],
+    kpis: ['Farmers onboarded / month', 'Sales revenue / field exec', 'Subscription conversions'],
+  },
+] as const;
+
 const EmployeeManagement: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('teams');
   const [employees, setEmployees] = useState<Employee[]>(SEED_EMPLOYEES);
   const [targets] = useState<Target[]>(SEED_TARGETS);
   const [visits] = useState<FieldVisit[]>(SEED_VISITS);
@@ -396,6 +501,16 @@ const EmployeeManagement: React.FC = () => {
     const matchRole = roleFilter === 'ALL' || e.role === roleFilter;
     return matchSearch && matchRole;
   }), [employees, searchQ, roleFilter]);
+
+  // ─── Derived: employees by team ───────────────────────────────────────────
+  const empsByTeam = useMemo(() => {
+    return Object.fromEntries(
+      TEAM_CONFIG.map(team => [
+        team.id,
+        employees.filter(e => (team.roles as readonly string[]).includes(e.role))
+      ])
+    );
+  }, [employees]);
 
   const handleSaveEmployee = (emp: Employee) => {
     setEmployees(prev => {
@@ -980,6 +1095,133 @@ const EmployeeManagement: React.FC = () => {
     );
   };
 
+  // ─── TAB: Teams ─────────────────────────────────────────────────────────────
+
+  const renderTeams = () => (
+    <div className="space-y-8">
+      {/* Org headline */}
+      <div className="glass-panel p-6 border border-emerald-500/10 bg-gradient-to-r from-emerald-500/5 to-transparent">
+        <h2 className="text-xl font-display font-bold mb-1">AquaGrow Internal Team Structure</h2>
+        <p className="text-sm text-zinc-400">6 teams working end-to-end: Supplier → Admin → Inventory → Farmer Order → Packing → Shipping → Delivery → Support → Feedback</p>
+        <div className="flex items-center gap-2 mt-4 overflow-x-auto pb-1 flex-wrap">
+          {['🏭 Supplier', '→', '🧠 Operations', '→', '📦 Warehouse', '→', '🚚 Logistics', '→', '👨‍🌾 Farmer', '→', '📞 Support', '→', '📊 Growth'].map((s, i) => (
+            s === '→'
+              ? <span key={i} className="text-zinc-600 font-bold shrink-0">→</span>
+              : <span key={i} className="text-xs font-bold px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-zinc-300 shrink-0">{s}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Team summary stats */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+        {TEAM_CONFIG.map(team => (
+          <div key={team.id} className={`glass-panel p-4 text-center border ${team.border} bg-gradient-to-b ${team.gradient}`}>
+            <p className="text-2xl mb-1">{team.emoji}</p>
+            <p className={`text-2xl font-display font-bold ${team.accent}`}>{empsByTeam[team.id]?.length ?? 0}</p>
+            <p className="text-[9px] text-zinc-500 uppercase font-bold mt-0.5">{team.name}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Per team cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {TEAM_CONFIG.map(team => {
+          const teamEmps = empsByTeam[team.id] ?? [];
+          return (
+            <motion.div key={team.id} whileHover={{ y: -2 }} className={`glass-panel border ${team.border} bg-gradient-to-b ${team.gradient} flex flex-col`}>
+              {/* Team header */}
+              <div className="p-5 border-b border-white/5">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{team.emoji}</span>
+                    <div>
+                      <h3 className="font-display font-bold text-base">{team.name}</h3>
+                      <p className="text-[10px] text-zinc-500">{team.subtitle}</p>
+                    </div>
+                  </div>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full bg-white/5 ${team.accent}`}>{teamEmps.length} staff</span>
+                </div>
+              </div>
+
+              {/* Members */}
+              <div className="p-4 space-y-2">
+                <p className="text-[9px] text-zinc-600 uppercase font-bold mb-2">Team Members</p>
+                {teamEmps.length === 0 && <p className="text-xs text-zinc-600 italic">No staff assigned yet</p>}
+                {teamEmps.map((emp, i) => (
+                  <div key={emp.id} className="flex items-center gap-2.5">
+                    <div className={`w-7 h-7 rounded-lg ${avatarColors[i % avatarColors.length]} flex items-center justify-center text-white text-[9px] font-bold shrink-0`}>{emp.avatar}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold truncate">{emp.name}</p>
+                      <p className="text-[9px] text-zinc-500">{ROLE_META[emp.role].label}</p>
+                    </div>
+                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                      emp.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-400' :
+                      emp.status === 'ON_LEAVE' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'
+                    }`}>{emp.status}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Daily tasks */}
+              <div className="px-4 pb-4 flex-1">
+                <p className="text-[9px] text-zinc-600 uppercase font-bold mb-2">Daily Responsibilities</p>
+                <ul className="space-y-1.5">
+                  {team.dailyTasks.map((task, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className={`mt-0.5 w-3.5 h-3.5 rounded-full bg-white/5 flex items-center justify-center text-[7px] font-bold ${team.accent} shrink-0`}>{i + 1}</span>
+                      <span className="text-[10px] text-zinc-400 leading-snug">{task}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* KPIs */}
+              <div className="px-4 pb-5">
+                <p className="text-[9px] text-zinc-600 uppercase font-bold mb-2">KPIs Tracked</p>
+                <div className="flex flex-wrap gap-1">
+                  {team.kpis.map(kpi => (
+                    <span key={kpi} className={`text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/5 border border-white/10 ${team.accent}`}>{kpi}</span>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* End-to-end workflow */}
+      <div className="glass-panel overflow-hidden">
+        <div className="p-5 border-b border-white/5 bg-white/3">
+          <h3 className="font-display font-bold text-base">Complete Order Workflow — Team Handoffs</h3>
+          <p className="text-xs text-zinc-500 mt-0.5">Who does what at each stage</p>
+        </div>
+        <div className="p-6">
+          <div className="space-y-0">
+            {[
+              { step: '1', team: '📊 Growth / Sales', action: 'Farmer visits → Product awareness → AquaShop order placed', color: 'border-blue-500/30 bg-blue-500/5', badge: 'bg-blue-500/10 text-blue-400' },
+              { step: '2', team: '🧠 Operations', action: 'Order verify → Payment check → Confirm to farmer', color: 'border-red-500/30 bg-red-500/5', badge: 'bg-red-500/10 text-red-400' },
+              { step: '3', team: '📦 Warehouse', action: 'Stock pick → Batch expiry check → Pack as per order → Dispatch ready', color: 'border-amber-500/30 bg-amber-500/5', badge: 'bg-amber-500/10 text-amber-400' },
+              { step: '4', team: '🚚 Logistics', action: 'Route plan → Pickup from warehouse → Delivery to farmer → Confirmation', color: 'border-teal-500/30 bg-teal-500/5', badge: 'bg-teal-500/10 text-teal-400' },
+              { step: '5', team: '📞 Customer Support', action: 'Usage guidance → Issue resolution → Feedback collection → Return/replacement if needed', color: 'border-green-500/30 bg-green-500/5', badge: 'bg-green-500/10 text-green-400' },
+              { step: '6', team: '💻 Tech Team', action: 'Notifications fire → Tracking updates → IoT alerts → App health', color: 'border-violet-500/30 bg-violet-500/5', badge: 'bg-violet-500/10 text-violet-400' },
+            ].map((row, i, arr) => (
+              <div key={row.step} className="flex items-stretch gap-4">
+                <div className="flex flex-col items-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-display font-bold shrink-0 ${row.badge}`}>{row.step}</div>
+                  {i < arr.length - 1 && <div className="w-px flex-1 bg-white/5 my-1" />}
+                </div>
+                <div className={`flex-1 p-4 rounded-xl border mb-3 ${row.color}`}>
+                  <p className="text-xs font-bold text-zinc-200 mb-0.5">{row.team}</p>
+                  <p className="text-[10px] text-zinc-400 leading-relaxed">{row.action}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   // ─── Employee Detail Panel ──────────────────────────────────────────────────
 
   const renderDetailPanel = () => {
@@ -1158,8 +1400,8 @@ const EmployeeManagement: React.FC = () => {
       {/* Page Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold text-zinc-100">Employee Management</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Manage your field staff, targets, visits, and performance</p>
+          <h1 className="text-2xl font-display font-bold text-zinc-100">Staff & Teams</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">6 teams · {employees.length} staff members · Operations, Warehouse, Logistics, Support, Tech, Growth</p>
         </div>
         <button onClick={() => { setEditEmp(null); setShowModal(true); }}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-900 text-sm font-bold transition-all">
@@ -1184,15 +1426,16 @@ const EmployeeManagement: React.FC = () => {
       {/* Tab Content */}
       <AnimatePresence mode="wait">
         <motion.div key={activeTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
-          {activeTab === 'overview' && renderOverview()}
-          {activeTab === 'targets' && renderTargets()}
-          {activeTab === 'visits' && renderVisits()}
+          {activeTab === 'teams'      && renderTeams()}
+          {activeTab === 'overview'   && renderOverview()}
+          {activeTab === 'targets'    && renderTargets()}
+          {activeTab === 'visits'     && renderVisits()}
           {activeTab === 'attendance' && renderAttendance()}
-          {activeTab === 'tasks' && renderTasks()}
-          {activeTab === 'expenses' && renderExpenses()}
+          {activeTab === 'tasks'      && renderTasks()}
+          {activeTab === 'expenses'   && renderExpenses()}
           {activeTab === 'incentives' && renderIncentives()}
-          {activeTab === 'training' && renderTraining()}
-          {activeTab === 'analytics' && renderAnalytics()}
+          {activeTab === 'training'   && renderTraining()}
+          {activeTab === 'analytics'  && renderAnalytics()}
         </motion.div>
       </AnimatePresence>
 
