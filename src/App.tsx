@@ -2,9 +2,10 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { TrendingUp } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
+import type { AdminRole } from './context/AuthContext';
 import Layout from './components/Layout';
 
-// Existing pages
+// Pages
 import Dashboard from './pages/Dashboard';
 import Operations from './pages/Operations';
 import ProviderRegistry from './pages/ProviderRegistry';
@@ -16,8 +17,6 @@ import BuyerManagement from './pages/BuyerManagement';
 import SupplyChain from './pages/SupplyChain';
 import SupportTickets from './pages/SupportTickets';
 import Login from './pages/Login';
-
-// New pages
 import HarvestManagement from './pages/HarvestManagement';
 import Certifications from './pages/Certifications';
 import IoTDevices from './pages/IoTDevices';
@@ -32,19 +31,30 @@ import SettingsPage from './pages/Settings';
 import RBACManagement from './pages/RBACManagement';
 import FarmIntelligence from './pages/FarmIntelligence';
 
-// Route guards
+// ─── Route Guards ─────────────────────────────────────────────────────────────
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
   return user ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
-// Super-Admin-only route guard
 const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { isSuperAdmin } = useAuth();
   return isSuperAdmin ? <>{children}</> : <Navigate to="/" replace />;
 };
 
-// Placeholder for pages not yet built
+/**
+ * RoleRoute — gates a page by allowed roles.
+ * super_admin always passes. All other roles must be explicitly listed.
+ */
+const RoleRoute = ({ children, roles }: { children: React.ReactNode; roles: AdminRole[] }) => {
+  const { user, isSuperAdmin } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (isSuperAdmin) return <>{children}</>;
+  if (roles.includes(user.role)) return <>{children}</>;
+  return <Navigate to="/" replace />;
+};
+
+// Placeholder for future pages
 const PlaceholderPage = ({ title }: { title: string }) => (
   <div className="space-y-8">
     <h1 className="text-4xl font-display font-bold tracking-tight">{title}</h1>
@@ -64,38 +74,63 @@ const App = () => {
       <Routes>
         <Route path="/login" element={<Login />} />
 
-        {/* ── Core ──────────────────────────────────────── */}
-        <Route path="/"                   element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
-        <Route path="/farm-intelligence"  element={<ProtectedRoute><Layout><FarmIntelligence /></Layout></ProtectedRoute>} />
+        {/* ── Core: all authenticated roles ───────────────────── */}
+        <Route path="/"
+          element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+        <Route path="/farm-intelligence"
+          element={<ProtectedRoute><Layout><FarmIntelligence /></Layout></ProtectedRoute>} />
+        <Route path="/alerts"
+          element={<ProtectedRoute><Layout><Alerts /></Layout></ProtectedRoute>} />
+        <Route path="/settings"
+          element={<ProtectedRoute><Layout><SettingsPage /></Layout></ProtectedRoute>} />
 
-        {/* ── Farm Management ───────────────────────────── */}
-        <Route path="/providers"     element={<ProtectedRoute><Layout><ProviderRegistry /></Layout></ProtectedRoute>} />
-        <Route path="/employees"     element={<ProtectedRoute><Layout><EmployeeManagement /></Layout></ProtectedRoute>} />
-        <Route path="/harvests"      element={<ProtectedRoute><Layout><HarvestManagement /></Layout></ProtectedRoute>} />
-        <Route path="/certifications"element={<ProtectedRoute><Layout><Certifications /></Layout></ProtectedRoute>} />
-        <Route path="/iot-devices"   element={<ProtectedRoute><Layout><IoTDevices /></Layout></ProtectedRoute>} />
+        {/* ── Farmers: operations + hr ─────────────────────────── */}
+        <Route path="/harvests"
+          element={<RoleRoute roles={['operations_admin','hr_admin']}><Layout><HarvestManagement /></Layout></RoleRoute>} />
+        <Route path="/certifications"
+          element={<RoleRoute roles={['operations_admin','hr_admin']}><Layout><Certifications /></Layout></RoleRoute>} />
 
-        {/* ── Commerce ──────────────────────────────────────── */}
-        <Route path="/order-management"element={<ProtectedRoute><Layout><OrderManagement /></Layout></ProtectedRoute>} />
-        <Route path="/price-control"   element={<ProtectedRoute><Layout><PriceControl /></Layout></ProtectedRoute>} />
-        <Route path="/buyers"          element={<ProtectedRoute><Layout><BuyerManagement /></Layout></ProtectedRoute>} />
-        <Route path="/supply-chain"    element={<ProtectedRoute><Layout><SupplyChain /></Layout></ProtectedRoute>} />
-        <Route path="/finance"         element={<ProtectedRoute><Layout><Finance /></Layout></ProtectedRoute>} />
-        <Route path="/subscriptions"   element={<ProtectedRoute><Layout><Subscriptions /></Layout></ProtectedRoute>} />
-        <Route path="/products"        element={<ProtectedRoute><Layout><ProductsManagement /></Layout></ProtectedRoute>} />
-        <Route path="/revenue"         element={<ProtectedRoute><Layout><RevenueManagement /></Layout></ProtectedRoute>} />
+        {/* ── Operations ──────────────────────────────────────── */}
+        <Route path="/providers"
+          element={<RoleRoute roles={['operations_admin','inventory_admin']}><Layout><ProviderRegistry /></Layout></RoleRoute>} />
+        <Route path="/employees"
+          element={<RoleRoute roles={['hr_admin','operations_admin']}><Layout><EmployeeManagement /></Layout></RoleRoute>} />
+        <Route path="/iot-devices"
+          element={<RoleRoute roles={['technical_admin','inventory_admin','operations_admin']}><Layout><IoTDevices /></Layout></RoleRoute>} />
 
-        {/* ── Growth & Comms ────────────────────────────── */}
-        <Route path="/marketing"          element={<ProtectedRoute><Layout><Marketing /></Layout></ProtectedRoute>} />
-        <Route path="/content"            element={<ProtectedRoute><Layout><ContentManagement /></Layout></ProtectedRoute>} />
-        <Route path="/alerts"             element={<ProtectedRoute><Layout><Alerts /></Layout></ProtectedRoute>} />
+        {/* ── Commerce ────────────────────────────────────────── */}
+        <Route path="/order-management"
+          element={<RoleRoute roles={['operations_admin','inventory_admin']}><Layout><OrderManagement /></Layout></RoleRoute>} />
+        <Route path="/products"
+          element={<RoleRoute roles={['inventory_admin','sales_admin','operations_admin']}><Layout><ProductsManagement /></Layout></RoleRoute>} />
+        <Route path="/price-control"
+          element={<RoleRoute roles={['inventory_admin','sales_admin','finance_admin']}><Layout><PriceControl /></Layout></RoleRoute>} />
+        <Route path="/buyers"
+          element={<RoleRoute roles={['sales_admin','operations_admin']}><Layout><BuyerManagement /></Layout></RoleRoute>} />
+        <Route path="/supply-chain"
+          element={<RoleRoute roles={['operations_admin','inventory_admin']}><Layout><SupplyChain /></Layout></RoleRoute>} />
+        <Route path="/finance"
+          element={<RoleRoute roles={['finance_admin','operations_admin']}><Layout><Finance /></Layout></RoleRoute>} />
+        <Route path="/subscriptions"
+          element={<RoleRoute roles={['finance_admin','operations_admin','sales_admin']}><Layout><Subscriptions /></Layout></RoleRoute>} />
+        <Route path="/revenue"
+          element={<RoleRoute roles={['finance_admin','operations_admin']}><Layout><RevenueManagement /></Layout></RoleRoute>} />
 
-        {/* ── System ────────────────────────────────────── */}
-        <Route path="/support"    element={<ProtectedRoute><Layout><SupportTickets /></Layout></ProtectedRoute>} />
-        <Route path="/ai-control" element={<ProtectedRoute><Layout><AIControl /></Layout></ProtectedRoute>} />
-        <Route path="/operations" element={<ProtectedRoute><Layout><Operations /></Layout></ProtectedRoute>} />
-        <Route path="/settings"   element={<ProtectedRoute><Layout><SettingsPage /></Layout></ProtectedRoute>} />
-        <Route path="/rbac"       element={<SuperAdminRoute><Layout><RBACManagement /></Layout></SuperAdminRoute>} />
+        {/* ── Growth & Comms ───────────────────────────────────── */}
+        <Route path="/marketing"
+          element={<RoleRoute roles={['sales_admin']}><Layout><Marketing /></Layout></RoleRoute>} />
+        <Route path="/content"
+          element={<RoleRoute roles={['sales_admin','operations_admin']}><Layout><ContentManagement /></Layout></RoleRoute>} />
+
+        {/* ── System ──────────────────────────────────────────── */}
+        <Route path="/support"
+          element={<RoleRoute roles={['support_admin','operations_admin']}><Layout><SupportTickets /></Layout></RoleRoute>} />
+        <Route path="/ai-control"
+          element={<RoleRoute roles={['technical_admin']}><Layout><AIControl /></Layout></RoleRoute>} />
+        <Route path="/operations"
+          element={<RoleRoute roles={['operations_admin']}><Layout><Operations /></Layout></RoleRoute>} />
+        <Route path="/rbac"
+          element={<SuperAdminRoute><Layout><RBACManagement /></Layout></SuperAdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -261,64 +261,110 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location  = useLocation();
   const navigate  = useNavigate();
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, user } = useAuth();
   const { isDark } = useTheme();
+  const role = user?.role ?? 'super_admin';
+
+  // ─── Role-based page access ───────────────────────────────────────────────
+  /** Returns true if the logged-in role is allowed to see this page */
+  const canSee = (allowedRoles: string[]): boolean =>
+    isSuperAdmin || allowedRoles.includes(role);
 
   const menuSections: NavSection[] = [
     {
       label: 'Overview', emoji: '🏠',
       items: [
-        { icon: LayoutDashboard, label: 'Dashboard',                path: '/' },
-        { icon: Database,         label: 'Farm Intelligence',        path: '/farm-intelligence', accent: 'text-purple-400' },
+        { icon: LayoutDashboard, label: 'Dashboard',       path: '/' },
+        ...(canSee(['hr_admin', 'operations_admin', 'finance_admin', 'sales_admin', 'technical_admin', 'inventory_admin', 'support_admin'])
+          ? [{ icon: Database, label: 'Farm Intelligence', path: '/farm-intelligence', accent: 'text-purple-400' }]
+          : []),
       ],
     },
-    {
-      label: 'Farmers', emoji: '🌾',
-      items: [
-        { icon: Package,  label: 'Harvest Management', path: '/harvests',       accent: 'text-teal-400' },
-        { icon: Award,    label: 'Certifications',     path: '/certifications', accent: 'text-yellow-400' },
-      ],
-    },
+    ...(canSee(['operations_admin', 'hr_admin'])
+      ? [{
+          label: 'Farmers', emoji: '🌾',
+          items: [
+            { icon: Package,  label: 'Harvest Management', path: '/harvests',       accent: 'text-teal-400' },
+            { icon: Award,    label: 'Certifications',     path: '/certifications', accent: 'text-yellow-400' },
+          ],
+        }]
+      : []),
     {
       label: 'Operations', emoji: '⚙️',
       items: [
-        { icon: ShieldCheck, label: 'Provider Registry', path: '/providers',  accent: 'text-blue-400' },
-        { icon: UserCheck,   label: 'Staff & Field Ops', path: '/employees',  accent: 'text-indigo-400' },
-        { icon: Wifi,        label: 'IoT Devices',       path: '/iot-devices', accent: 'text-cyan-400' },
-      ],
+        ...(canSee(['operations_admin', 'inventory_admin'])
+          ? [{ icon: ShieldCheck, label: 'Provider Registry', path: '/providers', accent: 'text-blue-400' }]
+          : []),
+        ...(canSee(['hr_admin', 'operations_admin'])
+          ? [{ icon: UserCheck, label: 'Staff & Field Ops', path: '/employees', accent: 'text-indigo-400' }]
+          : []),
+        ...(canSee(['technical_admin', 'inventory_admin', 'operations_admin'])
+          ? [{ icon: Wifi, label: 'IoT Devices', path: '/iot-devices', accent: 'text-cyan-400' }]
+          : []),
+      ].filter(Boolean),
     },
-    {
-      label: 'Commerce', emoji: '🛒',
-      items: [
-        { icon: ClipboardList, label: 'Order Management',   path: '/order-management', accent: 'text-orange-400' },
-        { icon: ShoppingBag,   label: 'Products & Sales',   path: '/products',         accent: 'text-amber-400' },
-        { icon: DollarSign,    label: 'Price Control',      path: '/price-control',    accent: 'text-lime-400' },
-        { icon: Building2,     label: 'Buyer Management',   path: '/buyers',           accent: 'text-sky-400' },
-        { icon: Truck,         label: 'Supply Chain',       path: '/supply-chain',     accent: 'text-blue-300' },
-        { icon: Wallet,        label: 'Finance & Payments', path: '/finance',          accent: 'text-emerald-400' },
-        { icon: TrendingUp,    label: 'Revenue Management', path: '/revenue',          accent: 'text-green-400' },
-        { icon: CreditCard,    label: 'Subscriptions',      path: '/subscriptions',    accent: 'text-violet-400' },
-      ],
-    },
-    {
-      label: 'Growth & Comms', emoji: '📣',
-      items: [
-        { icon: Megaphone, label: 'Marketing',     path: '/marketing', accent: 'text-pink-400' },
-        { icon: BookOpen,  label: 'Content',       path: '/content',   accent: 'text-blue-300' },
-        { icon: Bell,      label: 'Alerts System', path: '/alerts',    accent: 'text-amber-400' },
-      ],
-    },
+    ...(canSee(['finance_admin', 'operations_admin', 'inventory_admin', 'sales_admin'])
+      ? [{
+          label: 'Commerce', emoji: '🛒',
+          items: [
+            ...(canSee(['operations_admin', 'inventory_admin'])
+              ? [{ icon: ClipboardList, label: 'Order Management', path: '/order-management', accent: 'text-orange-400' }]
+              : []),
+            ...(canSee(['inventory_admin', 'sales_admin'])
+              ? [
+                  { icon: ShoppingBag, label: 'Products & Sales',  path: '/products',       accent: 'text-amber-400' },
+                  { icon: DollarSign,  label: 'Price Control',     path: '/price-control',  accent: 'text-lime-400' },
+                ]
+              : []),
+            ...(canSee(['sales_admin', 'operations_admin'])
+              ? [{ icon: Building2, label: 'Buyer Management', path: '/buyers', accent: 'text-sky-400' }]
+              : []),
+            ...(canSee(['operations_admin', 'inventory_admin'])
+              ? [{ icon: Truck, label: 'Supply Chain', path: '/supply-chain', accent: 'text-blue-300' }]
+              : []),
+            ...(canSee(['finance_admin', 'operations_admin'])
+              ? [
+                  { icon: Wallet,     label: 'Finance & Payments', path: '/finance',        accent: 'text-emerald-400' },
+                  { icon: TrendingUp, label: 'Revenue Management', path: '/revenue',        accent: 'text-green-400' },
+                  { icon: CreditCard, label: 'Subscriptions',      path: '/subscriptions',  accent: 'text-violet-400' },
+                ]
+              : []),
+          ].filter(Boolean),
+        }]
+      : []),
+    ...(canSee(['sales_admin', 'technical_admin', 'operations_admin'])
+      ? [{
+          label: 'Growth & Comms', emoji: '📣',
+          items: [
+            ...(canSee(['sales_admin'])
+              ? [
+                  { icon: Megaphone, label: 'Marketing', path: '/marketing', accent: 'text-pink-400' },
+                  { icon: BookOpen,  label: 'Content',   path: '/content',   accent: 'text-blue-300' },
+                ]
+              : []),
+            { icon: Bell, label: 'Alerts System', path: '/alerts', accent: 'text-amber-400' },
+          ].filter(Boolean),
+        }]
+      : []),
     {
       label: 'System', emoji: '🔧',
       items: [
-        { icon: LifeBuoy, label: 'Support Tickets',     path: '/support',     accent: 'text-red-400' },
-        { icon: Cpu,      label: 'AI Control',          path: '/ai-control',  accent: 'text-purple-400' },
-        { icon: Activity, label: 'Operations',          path: '/operations',  accent: 'text-teal-400' },
-        ...(isSuperAdmin ? [{ icon: Key, label: 'Roles & Access', path: '/rbac', accent: 'text-yellow-400' }] : []),
-        { icon: Settings, label: 'Settings',            path: '/settings',    accent: 'text-zinc-400' },
-      ],
+        ...(canSee(['support_admin', 'operations_admin'])
+          ? [{ icon: LifeBuoy, label: 'Support Tickets', path: '/support', accent: 'text-red-400' }]
+          : []),
+        ...(canSee(['technical_admin'])
+          ? [{ icon: Cpu, label: 'AI Control', path: '/ai-control', accent: 'text-purple-400' }]
+          : []),
+        ...(canSee(['operations_admin'])
+          ? [{ icon: Activity, label: 'Operations', path: '/operations', accent: 'text-teal-400' }]
+          : []),
+        ...(isSuperAdmin
+          ? [{ icon: Key, label: 'Roles & Access', path: '/rbac', accent: 'text-yellow-400' }]
+          : []),
+        { icon: Settings, label: 'Settings', path: '/settings', accent: 'text-zinc-400' },
+      ].filter(Boolean),
     },
-  ];
+  ].filter(s => s.items.length > 0);
 
   const handleLogout = () => { navigate('/login'); };
 
