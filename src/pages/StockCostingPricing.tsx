@@ -18,34 +18,38 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   DollarSign, Package, ChevronDown, Search, AlertTriangle,
   CheckCircle2, Clock, Edit3, X, RefreshCw, Loader2,
-  IndianRupee, Percent, TrendingUp, FileText, Calculator
+  IndianRupee, Percent, TrendingUp, FileText, Calculator, Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BASE_URL, getAdminToken } from '../services/aquagrowApi';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+// Backend stores plain ₹ numbers. purchaseCostPending=true means costing not done.
 interface StockReceipt {
   _id: string;
-  supplierName?: string;
+  supplier?: string;         // Backend field is 'supplier', not 'supplierName'
   invoiceNumber?: string;
   receiptDate: string;
-  productName?: string;
+  items?: Array<{
+    productId: string | { _id: string; name: string; code: string; unit: string; company?: string };
+    quantity: number;
+    unit?: string;
+  }>;
+  productName?: string;      // derived from items[0].productId.name if populated
   productId?: string;
   batchNumber?: string;
-  enteredQty: number;
-  unit: string;
-  quantityBase: number;
-  baseUnit: string;
-  status: 'pending_costing' | 'costed' | 'rate_pending';
-  costingComplete: boolean;
-  // Costing fields (populated after owner completes)
-  purchaseRatePaise?: number;
-  companyDiscountPct?: number;
-  taxPct?: number;
-  allocatedChargesPaise?: number;
-  approvedSellingRatePaise?: number;
-  maxDiscountPct?: number;
-  // Computed display
+  enteredQty?: number;
+  unit?: string;
+  quantityBase?: number;
+  baseUnit?: string;
+  purchaseCostPending: boolean;  // true = needs costing (NOT costingComplete)
+  purchaseCostDetails?: {
+    purchaseCost?: number;
+    taxAmount?: number;
+    transportCharges?: number;
+    totalEffectiveCost?: number;
+    purchaseDiscountPercent?: number;
+  };
   createdByName?: string;
   shopId?: string;
 }
@@ -53,20 +57,25 @@ interface StockReceipt {
 interface Product {
   _id: string;
   name: string;
+  code?: string;
+  company?: string;
   category?: string;
   unit?: string;
-  approvedSellingRatePaise?: number;
-  maxDiscountPct?: number;
-  lastCostPaise?: number;
+  baseStockUnit?: string;
+  approvedSellingRate?: number;    // plain ₹
+  sellingDiscountPercent?: number; // %
+  mrp?: number;
+  isActive?: boolean;
 }
 
 interface CostingForm {
-  purchaseRatePaise: string;      // per base unit, in ₹ (we convert to paise)
-  companyDiscountPct: string;
-  taxPct: string;
-  allocatedChargesRs: string;     // ₹
-  approvedSellingRateRs: string;  // ₹
-  maxDiscountPct: string;
+  purchaseCost: string;           // ₹ per base unit (invoice price)
+  purchaseDiscountPct: string;    // %
+  taxAmount: string;              // ₹ total
+  transportCharges: string;       // ₹ total
+  totalEffectiveCost: string;     // ₹ — owner can override or accept calculated
+  approvedSellingRate: string;    // ₹ — optional, to also update product
+  maxDiscountPct: string;         // %
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────
@@ -88,7 +97,7 @@ async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
 const fetchPendingReceipts = () =>
   apiFetch<StockReceipt[]>('/receipts/pending-costing').catch(() =>
     apiFetch<StockReceipt[]>('/receipts').then(all =>
-      all.filter(r => !r.costingComplete)
+      all.filter(r => r.purchaseCostPending)
     )
   );
 
@@ -102,24 +111,27 @@ const updateSellingPrice = (productId: string, body: object) =>
   apiFetch(`/products/${productId}/selling-price`, { method: 'PUT', body: JSON.stringify(body) });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-const toPaise  = (rs: string) => Math.round(parseFloat(rs || '0') * 100);
-const fromPaise = (p?: number) => p != null ? (p / 100).toFixed(2) : '—';
-
-const fmtRs = (p?: number) => p != null ? `₹${(p / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—';
+// Backend stores plain ₹ numbers. No paise conversion needed for display.
+const fmtRs = (v?: number) => v != null ? `₹${v.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—';
 const fmtDate = (s: string) => new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
 const Spinner = () => <Loader2 size={15} className="animate-spin" />;
 
 const BLANK_COSTING: CostingForm = {
-  purchaseRatePaise: '',
-  companyDiscountPct: '',
-  taxPct: '',
-  allocatedChargesRs: '',
-  approvedSellingRateRs: '',
+  purchaseCost: '',
+  purchaseDiscountPct: '',
+  taxAmount: '',
+  transportCharges: '',
+  totalEffectiveCost: '',
+  approvedSellingRate: '',
   maxDiscountPct: '',
 };
 
 // ─── Costing Modal ────────────────────────────────────────────────────────────
+// Backend PUT /receipts/:id/costing expects:
+//   { purchaseDiscountPercent, purchaseCost, taxAmount, transportCharges,
+//     totalEffectiveCost, productId?, approvedSellingRate?, maxDiscountPercent? }
+// All amounts are plain ₹.
 const CostingModal = ({
   receipt,
   onClose,
@@ -129,13 +141,15 @@ const CostingModal = ({
   onClose: () => void;
   onSaved: () => void;
 }) => {
+  const existing = receipt.purchaseCostDetails;
   const [form, setForm] = useState<CostingForm>({
-    purchaseRatePaise:    fromPaise(receipt.purchaseRatePaise),
-    companyDiscountPct:   String(receipt.companyDiscountPct ?? ''),
-    taxPct:               String(receipt.taxPct ?? ''),
-    allocatedChargesRs:   fromPaise(receipt.allocatedChargesPaise),
-    approvedSellingRateRs: fromPaise(receipt.approvedSellingRatePaise),
-    maxDiscountPct:        String(receipt.maxDiscountPct ?? ''),
+    purchaseCost:       String(existing?.purchaseCost ?? ''),
+    purchaseDiscountPct: String(existing?.purchaseDiscountPercent ?? ''),
+    taxAmount:          String(existing?.taxAmount ?? ''),
+    transportCharges:   String(existing?.transportCharges ?? ''),
+    totalEffectiveCost: String(existing?.totalEffectiveCost ?? ''),
+    approvedSellingRate: '',
+    maxDiscountPct: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
@@ -143,33 +157,57 @@ const CostingModal = ({
   const set = (k: keyof CostingForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
 
-  // Derived effective cost calculation
-  const purchaseRs    = parseFloat(form.purchaseRatePaise || '0');
-  const discPct       = parseFloat(form.companyDiscountPct || '0');
-  const taxPct        = parseFloat(form.taxPct || '0');
-  const allocChargesRs = parseFloat(form.allocatedChargesRs || '0');
-  const totalQtyBase  = receipt.quantityBase || 0;
+  // Derived effective cost calculation (live preview)
+  const purchaseRs      = parseFloat(form.purchaseCost || '0');
+  const discPct         = parseFloat(form.purchaseDiscountPct || '0');
+  const taxAmt          = parseFloat(form.taxAmount || '0');
+  const transport       = parseFloat(form.transportCharges || '0');
+  // items[0].quantity as a proxy for total base qty, fallback to 1
+  const totalQty = (receipt.items?.[0] as any)?.quantity ?? 1;
 
   const afterDiscount = purchaseRs * (1 - discPct / 100);
-  const afterTax      = afterDiscount * (1 + taxPct / 100);
-  const perUnitCharges = totalQtyBase > 0 ? allocChargesRs / totalQtyBase : 0;
-  const effectiveCostPerUnit = afterTax + perUnitCharges;
+  const totalCost     = afterDiscount + taxAmt + transport;
+  const perUnitCost   = totalQty > 0 ? totalCost / totalQty : totalCost;
+
+  // Auto-fill totalEffectiveCost when inputs change
+  const calcTotal = totalCost > 0 ? totalCost.toFixed(2) : '';
+
+  // Resolve product name and productId from populated items
+  const resolvedProductName = (() => {
+    if (receipt.productName) return receipt.productName;
+    const item0 = receipt.items?.[0];
+    if (item0 && typeof item0.productId === 'object') return (item0.productId as any).name;
+    return 'Unknown Product';
+  })();
+  const resolvedProductId = (() => {
+    if (receipt.productId) return receipt.productId;
+    const item0 = receipt.items?.[0];
+    if (item0 && typeof item0.productId === 'object') return (item0.productId as any)._id;
+    if (item0) return String(item0.productId);
+    return undefined;
+  })();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.purchaseRatePaise) return setError('Purchase rate is required');
-    if (!form.approvedSellingRateRs) return setError('Approved selling rate is required');
+    const tec = form.totalEffectiveCost || calcTotal;
+    if (!tec || Number(tec) <= 0) return setError('Total effective cost is required');
     setError(null);
     setLoading(true);
     try {
-      await submitCosting(receipt._id, {
-        purchaseRatePaise:       toPaise(form.purchaseRatePaise),
-        companyDiscountPct:      parseFloat(form.companyDiscountPct || '0'),
-        taxPct:                  parseFloat(form.taxPct || '0'),
-        allocatedChargesPaise:   toPaise(form.allocatedChargesRs),
-        approvedSellingRatePaise: toPaise(form.approvedSellingRateRs),
-        maxDiscountPct:          parseFloat(form.maxDiscountPct || '0'),
-      });
+      const body: any = {
+        purchaseCost:            Number(form.purchaseCost || 0),
+        purchaseDiscountPercent: Number(form.purchaseDiscountPct || 0),
+        taxAmount:               Number(form.taxAmount || 0),
+        transportCharges:        Number(form.transportCharges || 0),
+        totalEffectiveCost:      Number(tec),
+      };
+      // Also update product selling rate if owner fills it in
+      if (form.approvedSellingRate && Number(form.approvedSellingRate) > 0) {
+        body.productId          = resolvedProductId;
+        body.approvedSellingRate = Number(form.approvedSellingRate);
+        body.maxDiscountPercent  = Number(form.maxDiscountPct || 0);
+      }
+      await submitCosting(receipt._id, body);
       onSaved();
       onClose();
     } catch (err: any) {
@@ -207,7 +245,7 @@ const CostingModal = ({
               <div>
                 <h3 className="font-display font-bold">Complete Purchase Costing</h3>
                 <p className="text-[10px] text-zinc-500 mt-0.5">
-                  {receipt.productName ?? 'Unknown Product'} · {receipt.supplierName ?? '—'} · {fmtDate(receipt.receiptDate)}
+                  {resolvedProductName} · {receipt.supplier ?? '—'} · {fmtDate(receipt.receiptDate)}
                 </p>
               </div>
             </div>
@@ -224,30 +262,27 @@ const CostingModal = ({
             {/* Receipt summary */}
             <div className="p-4 rounded-xl bg-white/3 border border-white/8 grid grid-cols-3 gap-4 text-xs">
               <div>
-                <p className="text-zinc-600 uppercase tracking-wider text-[9px] font-bold">Quantity Received</p>
-                <p className="text-zinc-200 font-bold mt-0.5">{receipt.enteredQty} {receipt.unit}</p>
-                <p className="text-zinc-600 text-[10px]">{receipt.quantityBase} {receipt.baseUnit} base</p>
+                <p className="text-zinc-600 uppercase tracking-wider text-[9px] font-bold">Invoice No.</p>
+                <p className="text-zinc-200 font-bold mt-0.5">{receipt.invoiceNumber ?? '—'}</p>
               </div>
               <div>
-                <p className="text-zinc-600 uppercase tracking-wider text-[9px] font-bold">Batch / Invoice</p>
-                <p className="text-zinc-200 font-bold mt-0.5">{receipt.batchNumber ?? '—'}</p>
-                <p className="text-zinc-600 text-[10px]">{receipt.invoiceNumber ?? '—'}</p>
+                <p className="text-zinc-600 uppercase tracking-wider text-[9px] font-bold">Items / Qty</p>
+                <p className="text-zinc-200 font-bold mt-0.5">{receipt.items?.length ?? 1} line(s)</p>
               </div>
               <div>
-                <p className="text-zinc-600 uppercase tracking-wider text-[9px] font-bold">Shop</p>
-                <p className="text-zinc-200 font-bold mt-0.5">{receipt.shopId ?? '—'}</p>
-                <p className="text-zinc-600 text-[10px]">by {receipt.createdByName ?? '—'}</p>
+                <p className="text-zinc-600 uppercase tracking-wider text-[9px] font-bold">Recorded By</p>
+                <p className="text-zinc-200 font-bold mt-0.5">{receipt.createdByName ?? '—'}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Purchase rate */}
+              {/* Invoice purchase cost */}
               <div>
-                {lbl('Invoice Purchase Rate *', '(₹ per base unit)')}
+                {lbl('Invoice Purchase Cost (₹)', '(total invoice value)')}
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">₹</span>
-                  <input type="number" step="0.01" min="0" value={form.purchaseRatePaise} onChange={set('purchaseRatePaise')}
-                    placeholder="0.00" className={`${inputCls} pl-7`} required />
+                  <input type="number" step="0.01" min="0" value={form.purchaseCost} onChange={set('purchaseCost')}
+                    placeholder="0.00" className={`${inputCls} pl-7`} />
                 </div>
               </div>
 
@@ -255,7 +290,7 @@ const CostingModal = ({
               <div>
                 {lbl('Company Purchase Discount', '(%)')}
                 <div className="relative">
-                  <input type="number" step="0.01" min="0" max="100" value={form.companyDiscountPct} onChange={set('companyDiscountPct')}
+                  <input type="number" step="0.01" min="0" max="100" value={form.purchaseDiscountPct} onChange={set('purchaseDiscountPct')}
                     placeholder="0.00" className={`${inputCls} pr-7`} />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">%</span>
                 </div>
@@ -263,43 +298,58 @@ const CostingModal = ({
 
               {/* Tax */}
               <div>
-                {lbl('Tax / GST', '(%)')}
-                <div className="relative">
-                  <input type="number" step="0.01" min="0" max="100" value={form.taxPct} onChange={set('taxPct')}
-                    placeholder="0.00" className={`${inputCls} pr-7`} />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">%</span>
-                </div>
-              </div>
-
-              {/* Allocated charges */}
-              <div>
-                {lbl('Allocated Purchase Charges', '(₹ total — split across qty)')}
+                {lbl('Tax / GST Amount', '(₹ total)')}
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">₹</span>
-                  <input type="number" step="0.01" min="0" value={form.allocatedChargesRs} onChange={set('allocatedChargesRs')}
+                  <input type="number" step="0.01" min="0" value={form.taxAmount} onChange={set('taxAmount')}
                     placeholder="0.00" className={`${inputCls} pl-7`} />
                 </div>
               </div>
 
-              {/* Approved selling rate */}
+              {/* Transport */}
               <div>
-                {lbl('Approved Selling Rate *', '(₹ per base unit)')}
+                {lbl('Transport Charges', '(₹ total)')}
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">₹</span>
-                  <input type="number" step="0.01" min="0" value={form.approvedSellingRateRs} onChange={set('approvedSellingRateRs')}
-                    placeholder="0.00" className={`${inputCls} pl-7`} required />
+                  <input type="number" step="0.01" min="0" value={form.transportCharges} onChange={set('transportCharges')}
+                    placeholder="0.00" className={`${inputCls} pl-7`} />
                 </div>
               </div>
 
-              {/* Max discount */}
+              {/* Total effective cost (required by backend) */}
               <div>
-                {lbl('Max Authorized Discount', '(%)')}
+                {lbl('Total Effective Cost *', '(₹ — override or use calculated)')}
                 <div className="relative">
-                  <input type="number" step="0.01" min="0" max="100" value={form.maxDiscountPct} onChange={set('maxDiscountPct')}
-                    placeholder="0.00" className={`${inputCls} pr-7`} />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">%</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">₹</span>
+                  <input type="number" step="0.01" min="0"
+                    value={form.totalEffectiveCost || calcTotal}
+                    onChange={set('totalEffectiveCost')}
+                    placeholder={calcTotal || '0.00'}
+                    className={`${inputCls} pl-7`} required />
                 </div>
               </div>
+
+              {/* Approved selling rate — optional (also updates product) */}
+              <div>
+                {lbl('Approved Selling Rate', '(₹ per unit — also updates product)')}
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">₹</span>
+                  <input type="number" step="0.01" min="0" value={form.approvedSellingRate} onChange={set('approvedSellingRate')}
+                    placeholder="0.00" className={`${inputCls} pl-7`} />
+                </div>
+              </div>
+
+              {/* Max discount — only shown if selling rate filled */}
+              {form.approvedSellingRate && Number(form.approvedSellingRate) > 0 && (
+                <div>
+                  {lbl('Max Authorized Discount', '(%)')}
+                  <div className="relative">
+                    <input type="number" step="0.01" min="0" max="100" value={form.maxDiscountPct} onChange={set('maxDiscountPct')}
+                      placeholder="0.00" className={`${inputCls} pr-7`} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">%</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Live cost preview */}
@@ -310,10 +360,10 @@ const CostingModal = ({
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                   {[
-                    { label: 'Invoice Rate',       value: `₹${purchaseRs.toFixed(2)}` },
+                    { label: 'Invoice Cost',       value: `₹${purchaseRs.toFixed(2)}` },
                     { label: 'After Company Disc', value: `₹${afterDiscount.toFixed(2)}` },
-                    { label: 'After Tax',           value: `₹${afterTax.toFixed(2)}` },
-                    { label: 'Effective Cost/Unit', value: `₹${effectiveCostPerUnit.toFixed(2)}`, highlight: true },
+                    { label: 'After Tax+Transport', value: `₹${totalCost.toFixed(2)}` },
+                    { label: 'Effective Cost/Unit', value: `₹${perUnitCost.toFixed(2)}`, highlight: true },
                   ].map(({ label, value, highlight }) => (
                     <div key={label} className={`p-2.5 rounded-lg ${highlight ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-white/3'}`}>
                       <p className="text-zinc-500 text-[9px] uppercase tracking-wider">{label}</p>
@@ -321,15 +371,12 @@ const CostingModal = ({
                     </div>
                   ))}
                 </div>
-                {form.approvedSellingRateRs && (
+                {form.approvedSellingRate && Number(form.approvedSellingRate) > 0 && (
                   <div className="mt-3 pt-3 border-t border-white/5 flex items-center gap-6 text-xs">
                     <span className="text-zinc-500">Margin: <span className="text-emerald-400 font-bold">
-                      {effectiveCostPerUnit > 0
-                        ? `${(((parseFloat(form.approvedSellingRateRs) - effectiveCostPerUnit) / effectiveCostPerUnit) * 100).toFixed(1)}%`
+                      {perUnitCost > 0
+                        ? `${(((Number(form.approvedSellingRate) - perUnitCost) / perUnitCost) * 100).toFixed(1)}%`
                         : '—'}
-                    </span></span>
-                    <span className="text-zinc-500">Total stock value: <span className="text-zinc-200 font-bold">
-                      ₹{(effectiveCostPerUnit * totalQtyBase).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </span></span>
                   </div>
                 )}
@@ -351,6 +398,8 @@ const CostingModal = ({
 };
 
 // ─── Selling Price Edit Modal ─────────────────────────────────────────────────
+// Backend PUT /products/:id/selling-price expects:
+//   { approvedSellingRate, sellingDiscountPercent? } — plain ₹
 const SellingPriceModal = ({
   product,
   onClose,
@@ -360,8 +409,8 @@ const SellingPriceModal = ({
   onClose: () => void;
   onSaved: () => void;
 }) => {
-  const [rateRs, setRateRs]   = useState(fromPaise(product.approvedSellingRatePaise));
-  const [discPct, setDiscPct] = useState(String(product.maxDiscountPct ?? ''));
+  const [rateRs, setRateRs]   = useState(product.approvedSellingRate != null ? String(product.approvedSellingRate) : '');
+  const [discPct, setDiscPct] = useState(String(product.sellingDiscountPercent ?? ''));
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
 
@@ -372,8 +421,8 @@ const SellingPriceModal = ({
     setLoading(true);
     try {
       await updateSellingPrice(product._id, {
-        approvedSellingRatePaise: toPaise(rateRs),
-        maxDiscountPct:           parseFloat(discPct || '0'),
+        approvedSellingRate:    Number(rateRs),
+        sellingDiscountPercent: Number(discPct || '0'),
       });
       onSaved();
       onClose();
@@ -445,6 +494,167 @@ const SellingPriceModal = ({
   );
 };
 
+// ─── Create Product Modal ─────────────────────────────────────────────────────
+const CATEGORIES = ['Feed', 'Medicine', 'Chemical', 'Equipment', 'Packaging', 'Other'];
+const UNITS = ['kg', 'g', 'L', 'mL', 'bag', 'box', 'piece', 'bottle', 'sachet'];
+
+interface NewProductForm {
+  company: string; name: string; code: string; category: string;
+  baseStockUnit: string; packSize: string; mrp: string; approvedSellingRate: string;
+  batchTracking: boolean; expiryTracking: boolean;
+}
+
+const CreateProductModal = ({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) => {
+  const [form, setForm] = useState<NewProductForm>({
+    company: '', name: '', code: '', category: 'Feed',
+    baseStockUnit: 'kg', packSize: '', mrp: '', approvedSellingRate: '',
+    batchTracking: false, expiryTracking: false,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+
+  const set = (k: keyof NewProductForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
+  const setB = (k: 'batchTracking' | 'expiryTracking') => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.checked }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.company.trim()) return setError('Company is required');
+    if (!form.name.trim())    return setError('Product name is required');
+    if (!form.code.trim())    return setError('Product code is required');
+    setError(null);
+    setLoading(true);
+    try {
+      const token = getAdminToken();
+      const res = await fetch(`${BASE_URL}/products`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          company: form.company.trim(),
+          name: form.name.trim(),
+          code: form.code.trim().toUpperCase(),
+          category: form.category,
+          baseStockUnit: form.baseStockUnit,
+          packSize: form.packSize ? Number(form.packSize) : undefined,
+          mrp: form.mrp ? Number(form.mrp) : undefined,
+          approvedSellingRate: form.approvedSellingRate ? Number(form.approvedSellingRate) : undefined,
+          batchTracking: form.batchTracking,
+          expiryTracking: form.expiryTracking,
+        }),
+      });
+      const json = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      if (!res.ok) throw new Error(json.error || `Failed: ${res.status}`);
+      onSaved();
+      onClose();
+    } catch (err: any) {
+      setError(err.message ?? 'Failed to create product');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const iCls = 'w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-100 outline-none focus:border-emerald-500/60 transition-all placeholder:text-zinc-600';
+  const lCls = 'block text-[10px] text-zinc-500 uppercase font-bold mb-1.5 tracking-wider';
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="p-5 border-b border-white/5 flex items-center justify-between sticky top-0 bg-zinc-900">
+            <div>
+              <h3 className="font-display font-bold">New Product</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">Add to master catalogue. Set selling price after adding.</p>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/5 text-zinc-400"><X size={16} /></button>
+          </div>
+          <form onSubmit={handleSubmit} className="p-5 space-y-4">
+            {error && (
+              <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold">
+                <AlertTriangle size={12} className="shrink-0" />{error}
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className={lCls}>Company / Brand *</label>
+                <input type="text" value={form.company} onChange={set('company')} placeholder="e.g. CP Foods" className={iCls} required />
+              </div>
+              <div className="md:col-span-2">
+                <label className={lCls}>Product Name *</label>
+                <input type="text" value={form.name} onChange={set('name')} placeholder="e.g. CP Starter Feed 0.5mm" className={iCls} required />
+              </div>
+              <div>
+                <label className={lCls}>Product Code *</label>
+                <input type="text" value={form.code} onChange={set('code')} placeholder="e.g. CPF-001" className={iCls} required />
+              </div>
+              <div>
+                <label className={lCls}>Category *</label>
+                <div className="relative">
+                  <select value={form.category} onChange={set('category')} className={`${iCls} appearance-none`}>
+                    {CATEGORIES.map(c => <option key={c} value={c} className="bg-zinc-900">{c}</option>)}
+                  </select>
+                  <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+                </div>
+              </div>
+              <div>
+                <label className={lCls}>Base Stock Unit *</label>
+                <div className="relative">
+                  <select value={form.baseStockUnit} onChange={set('baseStockUnit')} className={`${iCls} appearance-none`}>
+                    {UNITS.map(u => <option key={u} value={u} className="bg-zinc-900">{u}</option>)}
+                  </select>
+                  <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+                </div>
+              </div>
+              <div>
+                <label className={lCls}>Pack Size</label>
+                <input type="number" min="0" step="any" value={form.packSize} onChange={set('packSize')} placeholder="e.g. 25 (kg per bag)" className={iCls} />
+              </div>
+              <div>
+                <label className={lCls}>MRP ₹</label>
+                <input type="number" min="0" step="0.01" value={form.mrp} onChange={set('mrp')} placeholder="Max retail price" className={iCls} />
+              </div>
+              <div>
+                <label className={lCls}>Approved Selling Rate ₹ <span className="text-zinc-600 normal-case">(optional)</span></label>
+                <input type="number" min="0" step="0.01" value={form.approvedSellingRate} onChange={set('approvedSellingRate')} placeholder="Set now or later" className={iCls} />
+              </div>
+              <div className="md:col-span-2 flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.batchTracking} onChange={setB('batchTracking')}
+                    className="w-4 h-4 rounded accent-emerald-500" />
+                  <span className="text-xs text-zinc-400">Batch Tracking</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.expiryTracking} onChange={setB('expiryTracking')}
+                    className="w-4 h-4 rounded accent-emerald-500" />
+                  <span className="text-xs text-zinc-400">Expiry Tracking</span>
+                </label>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={onClose} className="btn-secondary text-sm px-5">Cancel</button>
+              <button type="submit" disabled={loading} className="btn-primary text-sm px-5 flex items-center gap-2 disabled:opacity-50">
+                {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                Create Product
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const StockCostingPricing: React.FC = () => {
   const [tab, setTab]           = useState<'pending' | 'products'>('pending');
@@ -455,6 +665,7 @@ const StockCostingPricing: React.FC = () => {
   const [search, setSearch]     = useState('');
   const [costingTarget, setCostingTarget] = useState<StockReceipt | null>(null);
   const [priceTarget, setPriceTarget]     = useState<Product | null>(null);
+  const [showNewProduct, setShowNewProduct] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
@@ -478,11 +689,17 @@ const StockCostingPricing: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  const filteredReceipts = receipts.filter(r =>
-    (r.productName ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    (r.supplierName ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    (r.invoiceNumber ?? '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredReceipts = receipts.filter(r => {
+    // Resolve product name from populated items or direct field
+    const prodName = r.productName ?? (r.items?.[0] && typeof r.items[0].productId === 'object'
+      ? (r.items[0].productId as any).name : '');
+    const supplier = r.supplier ?? '';
+    return (
+      prodName.toLowerCase().includes(search.toLowerCase()) ||
+      supplier.toLowerCase().includes(search.toLowerCase()) ||
+      (r.invoiceNumber ?? '').toLowerCase().includes(search.toLowerCase())
+    );
+  });
 
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -529,7 +746,7 @@ const StockCostingPricing: React.FC = () => {
         {[
           { label: 'Pending Costing', value: receipts.length, color: 'text-amber-400', icon: <Clock size={16} /> },
           { label: 'Products',        value: products.length,  color: 'text-blue-400',  icon: <Package size={16} /> },
-          { label: 'Priced Products', value: products.filter(p => p.approvedSellingRatePaise).length, color: 'text-emerald-400', icon: <CheckCircle2 size={16} /> },
+          { label: 'Priced Products', value: products.filter(p => p.approvedSellingRate && p.approvedSellingRate > 0).length, color: 'text-emerald-400', icon: <CheckCircle2 size={16} /> },
         ].map(({ label, value, color, icon }) => (
           <div key={label} className="glass-panel p-5">
             <div className="flex items-center justify-between mb-2">
@@ -541,31 +758,39 @@ const StockCostingPricing: React.FC = () => {
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-white/5 rounded-xl w-fit border border-white/8">
-        {([
-          { id: 'pending' as const, label: 'Pending Costing', icon: <Clock size={13} />, count: receipts.length },
-          { id: 'products' as const, label: 'Product Selling Prices', icon: <IndianRupee size={13} /> },
-        ]).map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-              tab === t.id
-                ? 'bg-emerald-500 text-white shadow-md'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            {t.icon} {t.label}
-            {t.count != null && t.count > 0 && (
-              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
-                tab === t.id ? 'bg-white/20 text-white' : 'bg-amber-500 text-zinc-900'
-              }`}>
-                {t.count}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* Tabs + New Product */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex gap-1 p-1 bg-white/5 rounded-xl w-fit border border-white/8">
+          {([
+            { id: 'pending' as const, label: 'Pending Costing', icon: <Clock size={13} />, count: receipts.length },
+            { id: 'products' as const, label: 'Product Selling Prices', icon: <IndianRupee size={13} /> },
+          ]).map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                tab === t.id
+                  ? 'bg-emerald-500 text-white shadow-md'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              {t.icon} {t.label}
+              {t.count != null && t.count > 0 && (
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                  tab === t.id ? 'bg-white/20 text-white' : 'bg-amber-500 text-zinc-900'
+                }`}>
+                  {t.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setShowNewProduct(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/20 transition-colors"
+        >
+          <Plus size={13} /> New Product
+        </button>
       </div>
 
       {/* Search */}
@@ -618,11 +843,15 @@ const StockCostingPricing: React.FC = () => {
                       <Package size={15} className="text-amber-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-zinc-100">{r.productName ?? 'Unknown Product'}</p>
+                      <p className="text-sm font-bold text-zinc-100">{(() => {
+                        if (r.productName) return r.productName;
+                        const item0 = r.items?.[0];
+                        if (item0 && typeof item0.productId === 'object') return (item0.productId as any).name;
+                        return 'Unknown Product';
+                      })()}</p>
                       <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                        <span className="text-[10px] text-zinc-500">{r.supplierName ?? '—'}</span>
+                        <span className="text-[10px] text-zinc-500">{r.supplier ?? '—'}</span>
                         <span className="text-[10px] text-zinc-600">Inv: {r.invoiceNumber ?? '—'}</span>
-                        <span className="text-[10px] text-zinc-600">{r.enteredQty} {r.unit}</span>
                         <span className="text-[10px] text-zinc-600">{fmtDate(r.receiptDate)}</span>
                       </div>
                     </div>
@@ -669,13 +898,13 @@ const StockCostingPricing: React.FC = () => {
                     <div className="hidden md:flex items-center gap-6 text-xs">
                       <div className="text-right">
                         <p className="text-zinc-600 text-[9px] uppercase tracking-wider">Selling Rate</p>
-                        <p className={`font-bold mt-0.5 ${p.approvedSellingRatePaise ? 'text-emerald-400' : 'text-zinc-600'}`}>
-                          {p.approvedSellingRatePaise ? fmtRs(p.approvedSellingRatePaise) : 'Not Set'}
+                        <p className={`font-bold mt-0.5 ${p.approvedSellingRate && p.approvedSellingRate > 0 ? 'text-emerald-400' : 'text-zinc-600'}`}>
+                          {p.approvedSellingRate && p.approvedSellingRate > 0 ? fmtRs(p.approvedSellingRate) : 'Not Set'}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-zinc-600 text-[9px] uppercase tracking-wider">Max Discount</p>
-                        <p className="text-zinc-300 font-bold mt-0.5">{p.maxDiscountPct != null ? `${p.maxDiscountPct}%` : '—'}</p>
+                        <p className="text-zinc-300 font-bold mt-0.5">{p.sellingDiscountPercent != null ? `${p.sellingDiscountPercent}%` : '—'}</p>
                       </div>
                     </div>
                     <button
@@ -683,7 +912,7 @@ const StockCostingPricing: React.FC = () => {
                       className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-bold transition-colors shrink-0"
                     >
                       <Edit3 size={12} />
-                      {p.approvedSellingRatePaise ? 'Update Price' : 'Set Price'}
+                      {p.approvedSellingRate && p.approvedSellingRate > 0 ? 'Update Price' : 'Set Price'}
                     </button>
                   </motion.div>
                 ))}
@@ -706,6 +935,12 @@ const StockCostingPricing: React.FC = () => {
           product={priceTarget}
           onClose={() => setPriceTarget(null)}
           onSaved={() => { load(); showToast('Selling price updated'); }}
+        />
+      )}
+      {showNewProduct && (
+        <CreateProductModal
+          onClose={() => setShowNewProduct(false)}
+          onSaved={() => { load(); showToast('Product created'); setShowNewProduct(false); }}
         />
       )}
     </div>

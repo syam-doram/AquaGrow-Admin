@@ -2,19 +2,21 @@
  * FarmerLedger.tsx
  * ─────────────────────────────────────────────────────────────────────────────
  * Owner: view farmer-wise purchase/payment ledger, outstanding dues,
- * culture lifecycle, and credit history.
+ * and credit history.
  *
- * Endpoints:
+ * Endpoints (backend field names confirmed from routes/ledger.ts):
  *   GET /farmers               → list farmers
- *   GET /ledger/:farmerId      → farmer ledger entries
- *   GET /cultures?farmerId=    → culture list
+ *   GET /ledger?farmerId=&from=&to=  → {ledger[], totalDebit, totalCredit, outstanding}
+ *
+ * Ledger row fields: { type, date, description, debit, credit, balance, ... }
+ * All amounts are plain ₹ (NOT paise).
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Users, Search, RefreshCw, AlertTriangle, ChevronRight,
-  Eye, X, Loader2, TrendingUp, Wallet, Calendar,
-  ArrowUpRight, ArrowDownRight, FileText, CheckCircle2
+  X, Loader2, Wallet,
+  ArrowUpRight, ArrowDownRight, FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BASE_URL, getAdminToken } from '../services/aquagrowApi';
@@ -25,18 +27,27 @@ interface Farmer {
   name: string;
   phoneNumber?: string;
   location?: string;
-  outstandingPaise?: number;
 }
 
 interface LedgerEntry {
-  _id: string;
+  type: 'Invoice' | 'Payment' | string;
   date: string;
-  type: 'invoice' | 'payment' | 'return' | 'discount' | 'harvest_recovery';
   description: string;
-  debitPaise: number;
-  creditPaise: number;
-  balancePaise: number;
-  referenceId?: string;
+  debit: number;
+  credit: number;
+  balance: number;
+  invoiceId?: string;
+  paymentId?: string;
+  status?: string;
+  method?: string;
+}
+
+interface LedgerResponse {
+  farmerId: string;
+  ledger: LedgerEntry[];
+  totalDebit: number;
+  totalCredit: number;
+  outstanding: number;
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────
@@ -55,45 +66,43 @@ async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
   return json as T;
 }
 
-const fetchFarmers = () =>
+const fetchFarmers = (): Promise<Farmer[]> =>
   apiFetch<Farmer[]>('/farmers').catch(() =>
     apiFetch<{ farmers: Farmer[] }>('/admin/farmers').then(r => r.farmers ?? (r as any))
   );
 
-const fetchLedger = (farmerId: string, from?: string, to?: string) => {
+const fetchLedger = (farmerId: string, from?: string, to?: string): Promise<LedgerResponse> => {
   const params = new URLSearchParams({ farmerId });
   if (from) params.set('from', from);
   if (to)   params.set('to', to);
-  return apiFetch<LedgerEntry[]>(`/ledger?${params}`);
+  return apiFetch<LedgerResponse>(`/ledger?${params}`);
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-const fmtRs   = (p: number) => `₹${(p / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+// Backend returns plain ₹ — display directly (no /100)
+const fmtRs   = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const fmtDate = (s: string) => new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-const todayISO  = () => new Date().toISOString().slice(0, 10);
+const todayISO    = () => new Date().toISOString().slice(0, 10);
 const monthAgoISO = () => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 10); };
-const Spinner = () => <Loader2 size={14} className="animate-spin" />;
 
-const TYPE_META: Record<LedgerEntry['type'], { label: string; color: string; sign: string }> = {
-  invoice:          { label: 'Sale',             color: 'text-blue-400',    sign: 'Dr' },
-  payment:          { label: 'Payment',          color: 'text-emerald-400', sign: 'Cr' },
-  return:           { label: 'Return',           color: 'text-amber-400',   sign: 'Cr' },
-  discount:         { label: 'Discount',         color: 'text-purple-400',  sign: 'Cr' },
-  harvest_recovery: { label: 'Harvest Recovery', color: 'text-teal-400',    sign: 'Cr' },
+const TYPE_META: Record<string, { label: string; color: string }> = {
+  Invoice: { label: 'Sale',    color: 'text-blue-400' },
+  Payment: { label: 'Payment', color: 'text-emerald-400' },
+  Return:  { label: 'Return',  color: 'text-amber-400' },
 };
 
 // ─── Ledger Panel ─────────────────────────────────────────────────────────────
 const LedgerPanel = ({ farmer, onClose }: { farmer: Farmer; onClose: () => void }) => {
-  const [entries, setEntries]   = useState<LedgerEntry[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
-  const [from, setFrom]         = useState(monthAgoISO());
-  const [to, setTo]             = useState(todayISO());
+  const [data, setData]       = useState<LedgerResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [from, setFrom]       = useState(monthAgoISO());
+  const [to, setTo]           = useState(todayISO());
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      setEntries(await fetchLedger(farmer._id, from, to));
+      setData(await fetchLedger(farmer._id, from, to));
     } catch (err: any) {
       setError(err.message ?? 'Failed to load ledger');
     } finally {
@@ -103,9 +112,7 @@ const LedgerPanel = ({ farmer, onClose }: { farmer: Farmer; onClose: () => void 
 
   useEffect(() => { load(); }, [load]);
 
-  const totalDebit  = entries.reduce((s, e) => s + e.debitPaise, 0);
-  const totalCredit = entries.reduce((s, e) => s + e.creditPaise, 0);
-  const outstanding = totalDebit - totalCredit;
+  const entries = data?.ledger ?? [];
 
   return (
     <AnimatePresence>
@@ -122,14 +129,14 @@ const LedgerPanel = ({ farmer, onClose }: { farmer: Farmer; onClose: () => void 
           {/* Header */}
           <div className="p-5 border-b border-white/5 flex items-center justify-between shrink-0">
             <div>
-              <h3 className="font-display font-bold">{farmer.name} — Ledger</h3>
+              <h3 className="font-display font-bold">{farmer.name} – Ledger</h3>
               <p className="text-xs text-zinc-500 mt-0.5">{farmer.phoneNumber ?? '—'} · {farmer.location ?? '—'}</p>
             </div>
             <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/5 text-zinc-400"><X size={16} /></button>
           </div>
 
           {/* Date range */}
-          <div className="px-5 py-4 border-b border-white/5 flex items-center gap-3 shrink-0">
+          <div className="px-5 py-4 border-b border-white/5 flex flex-wrap items-center gap-3 shrink-0">
             <div className="flex items-center gap-2">
               <label className="text-xs text-zinc-500">From</label>
               <input type="date" value={from} onChange={e => setFrom(e.target.value)}
@@ -147,16 +154,19 @@ const LedgerPanel = ({ farmer, onClose }: { farmer: Farmer; onClose: () => void 
           </div>
 
           {/* Summary */}
-          {!loading && !error && (
+          {!loading && !error && data && (
             <div className="px-5 py-4 border-b border-white/5 grid grid-cols-3 gap-4 shrink-0">
               {[
-                { label: 'Total Purchases', value: fmtRs(totalDebit),   color: 'text-blue-400' },
-                { label: 'Total Paid',       value: fmtRs(totalCredit),  color: 'text-emerald-400' },
-                { label: 'Outstanding',      value: fmtRs(Math.max(0, outstanding)), color: outstanding > 0 ? 'text-amber-400' : 'text-emerald-400' },
-              ].map(({ label, value, color }) => (
+                { label: 'Total Purchases', value: fmtRs(data.totalDebit),   color: 'text-blue-400',    icon: <ArrowUpRight size={14} /> },
+                { label: 'Total Paid',       value: fmtRs(data.totalCredit),  color: 'text-emerald-400', icon: <ArrowDownRight size={14} /> },
+                { label: 'Outstanding',      value: fmtRs(Math.max(0, data.outstanding)), color: data.outstanding > 0 ? 'text-amber-400' : 'text-emerald-400', icon: <Wallet size={14} /> },
+              ].map(({ label, value, color, icon }) => (
                 <div key={label} className="p-3 rounded-xl bg-white/3 border border-white/8">
-                  <p className="text-[9px] text-zinc-500 uppercase tracking-wider font-bold">{label}</p>
-                  <p className={`text-base font-bold mt-1 ${color}`}>{value}</p>
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className={`${color} opacity-70`}>{icon}</span>
+                    <p className="text-[9px] text-zinc-500 uppercase tracking-wider font-bold">{label}</p>
+                  </div>
+                  <p className={`text-base font-bold ${color}`}>{value}</p>
                 </div>
               ))}
             </div>
@@ -185,7 +195,7 @@ const LedgerPanel = ({ farmer, onClose }: { farmer: Farmer; onClose: () => void 
             )}
             {!loading && !error && entries.length > 0 && (
               <div>
-                <div className="grid grid-cols-12 px-5 py-2 bg-white/3 text-[9px] text-zinc-500 uppercase font-bold tracking-wider">
+                <div className="grid grid-cols-12 px-5 py-2 bg-white/3 text-[9px] text-zinc-500 uppercase font-bold tracking-wider sticky top-0">
                   <span className="col-span-2">Date</span>
                   <span className="col-span-4">Description</span>
                   <span className="col-span-1 text-center">Type</span>
@@ -195,22 +205,22 @@ const LedgerPanel = ({ farmer, onClose }: { farmer: Farmer; onClose: () => void 
                 </div>
                 <div className="divide-y divide-white/5">
                   {entries.map((e, i) => {
-                    const meta = TYPE_META[e.type] ?? { label: e.type, color: 'text-zinc-400', sign: '' };
+                    const meta = TYPE_META[e.type] ?? { label: e.type, color: 'text-zinc-400' };
                     return (
-                      <div key={e._id} className="grid grid-cols-12 px-5 py-3 text-xs hover:bg-white/2 transition-all">
+                      <div key={i} className="grid grid-cols-12 px-5 py-3 text-xs hover:bg-white/2 transition-all">
                         <span className="col-span-2 text-zinc-500">{fmtDate(e.date)}</span>
                         <span className="col-span-4 text-zinc-200">{e.description}</span>
                         <span className={`col-span-1 text-center text-[9px] font-bold ${meta.color}`}>{meta.label}</span>
                         <span className="col-span-2 text-right text-blue-400 font-mono">
-                          {e.debitPaise > 0 ? fmtRs(e.debitPaise) : '—'}
+                          {e.debit > 0 ? fmtRs(e.debit) : '—'}
                         </span>
                         <span className="col-span-2 text-right text-emerald-400 font-mono">
-                          {e.creditPaise > 0 ? fmtRs(e.creditPaise) : '—'}
+                          {e.credit > 0 ? fmtRs(e.credit) : '—'}
                         </span>
                         <span className={`col-span-1 text-right font-mono font-bold ${
-                          e.balancePaise > 0 ? 'text-amber-400' : 'text-emerald-400'
+                          e.balance > 0 ? 'text-amber-400' : 'text-emerald-400'
                         }`}>
-                          {fmtRs(e.balancePaise)}
+                          {fmtRs(e.balance)}
                         </span>
                       </div>
                     );
@@ -329,12 +339,6 @@ const FarmerLedger: React.FC = () => {
                     {f.phoneNumber ?? '—'}{f.location ? ` · ${f.location}` : ''}
                   </p>
                 </div>
-                {f.outstandingPaise != null && f.outstandingPaise > 0 && (
-                  <div className="shrink-0 text-right">
-                    <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Outstanding</p>
-                    <p className="text-sm font-bold text-amber-400 mt-0.5">{fmtRs(f.outstandingPaise)}</p>
-                  </div>
-                )}
                 <ChevronRight size={14} className="text-zinc-600 shrink-0" />
               </motion.div>
             ))}

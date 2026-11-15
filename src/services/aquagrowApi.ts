@@ -448,3 +448,187 @@ export interface LiveAeratorLog {
   pond?: { name: string } | null;
 }
 export const fetchIoTLogs = () => apiFetch<LiveAeratorLog[]>('/admin/iot');
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SHOP ERP — Staff Management (via /api/staff)
+// ═══════════════════════════════════════════════════════════════
+export interface ShopStaffMember {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  tenantId?: string;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const fetchShopStaff        = ()                                                  => apiFetch<ShopStaffMember[]>('/staff');
+export const createShopStaff       = (data: { name: string; email: string; password: string; role: string; tenantId?: string }) =>
+  apiFetch<ShopStaffMember>('/staff', { method: 'POST', body: JSON.stringify(data) });
+export const updateShopStaff       = (id: string, data: Partial<ShopStaffMember>)       => apiFetch<ShopStaffMember>(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deactivateShopStaff   = (id: string)                                       => apiFetch(`/staff/${id}`, { method: 'DELETE' });
+export const resetShopStaffPassword= (id: string, newPassword: string)                  => apiFetch(`/staff/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) });
+
+// ═══════════════════════════════════════════════════════════════
+//  SHOP ERP — Products
+// ═══════════════════════════════════════════════════════════════
+export interface ShopProduct {
+  _id: string;
+  company: string;
+  name: string;
+  code: string;
+  category: string;
+  packSize?: number;
+  unit?: string;
+  baseStockUnit: string;
+  mrp?: number;
+  approvedSellingRate?: number;
+  sellingDiscountPercent?: number;
+  isActive: boolean;
+}
+
+export const fetchShopProducts      = ()                                                        => apiFetch<ShopProduct[]>('/products');
+export const createShopProduct      = (data: Omit<ShopProduct, '_id' | 'isActive'>)            => apiFetch<ShopProduct>('/products', { method: 'POST', body: JSON.stringify(data) });
+export const updateShopProduct      = (id: string, data: Partial<ShopProduct>)                 => apiFetch<ShopProduct>(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const setProductSellingPrice = (id: string, approvedSellingRate: number, sellingDiscountPercent?: number, mrp?: number) =>
+  apiFetch<ShopProduct>(`/products/${id}/selling-price`, { method: 'PUT', body: JSON.stringify({ approvedSellingRate, sellingDiscountPercent, mrp }) });
+
+// ═══════════════════════════════════════════════════════════════
+//  SHOP ERP — Receipts (Stock Inward)
+// ═══════════════════════════════════════════════════════════════
+export interface ReceiptItem {
+  productId: string | ShopProduct;
+  batchId?: string;
+  quantity: number;
+  unit?: string;
+}
+
+export interface ShopReceipt {
+  _id: string;
+  supplier: string;
+  invoiceNumber: string;
+  receiptDate: string;
+  items: ReceiptItem[];
+  purchaseCostPending: boolean;
+  purchaseCostDetails?: {
+    purchaseDiscountPercent: number;
+    purchaseCost: number;
+    taxAmount: number;
+    transportCharges: number;
+    totalEffectiveCost: number;
+  };
+  createdBy: string;
+  createdAt: string;
+}
+
+export const fetchShopReceipts      = ()                                                     => apiFetch<ShopReceipt[]>('/receipts');
+export const fetchPendingCosting    = ()                                                     => apiFetch<ShopReceipt[]>('/receipts/pending-costing');
+export const submitReceiptCosting   = (id: string, data: {
+  purchaseDiscountPercent?: number;
+  purchaseCost?: number;
+  taxAmount?: number;
+  transportCharges?: number;
+  totalEffectiveCost: number;
+  productId?: string;
+  approvedSellingRate?: number;
+  maxDiscountPercent?: number;
+})                                                                                            => apiFetch<ShopReceipt>(`/receipts/${id}/costing`, { method: 'PUT', body: JSON.stringify(data) });
+
+// ═══════════════════════════════════════════════════════════════
+//  SHOP ERP — Invoices (Farmer Billing)
+// ═══════════════════════════════════════════════════════════════
+export interface InvoiceItem {
+  productId: string | ShopProduct;
+  batchId?: string;
+  quantity: number;
+  unitPrice: number;
+  discountPercent: number;
+  total: number;
+}
+
+export interface ShopInvoice {
+  _id: string;
+  farmerId: string;
+  pondId?: string;
+  items: InvoiceItem[];
+  totalAmount: number;
+  status: 'draft' | 'finalized' | 'paid' | 'cancelled';
+  createdBy: string;
+  createdAt: string;
+  payments?: any[];
+}
+
+export interface DailySummary {
+  date: string;
+  invoiceCount: number;
+  totalRevenue: number;
+  paidCount: number;
+  draftCount: number;
+  finalizedCount: number;
+}
+
+export const fetchInvoices          = (params?: { date?: string; farmerId?: string; status?: string; from?: string; to?: string }) => {
+  const qs = new URLSearchParams(params as any).toString();
+  return apiFetch<ShopInvoice[]>(`/invoices${qs ? '?' + qs : ''}`);
+};
+export const fetchInvoiceSummary    = (date: string)                                     => apiFetch<DailySummary>(`/invoices/summary?date=${date}`);
+export const fetchInvoice           = (id: string)                                       => apiFetch<ShopInvoice>(`/invoices/${id}`);
+export const createInvoice          = (data: { farmerId: string; pondId?: string; items: { productId: string; quantity: number; discountPercent?: number; batchId?: string }[]; payment?: { amount: number; method: string }; idempotencyKey?: string }) =>
+  apiFetch<ShopInvoice>('/invoices', { method: 'POST', body: JSON.stringify(data) });
+export const addInvoicePayment      = (id: string, data: { amount: number; method: string; details?: Record<string, string> }) =>
+  apiFetch(`/invoices/${id}/payment`, { method: 'POST', body: JSON.stringify(data) });
+
+// ═══════════════════════════════════════════════════════════════
+//  SHOP ERP — Day Close
+// ═══════════════════════════════════════════════════════════════
+export interface ShopDayClose {
+  _id: string;
+  date: string;
+  physicalCount: Record<string, number>;
+  variances: Record<string, number>;
+  isApproved: boolean;
+  approvedBy?: string;
+  createdAt: string;
+}
+
+export const fetchDayCloses         = (params?: { isApproved?: boolean; from?: string; to?: string }) => {
+  const qs = new URLSearchParams(params as any).toString();
+  return apiFetch<ShopDayClose[]>(`/dayclose${qs ? '?' + qs : ''}`);
+};
+export const approveDayClose        = (id: string)                 => apiFetch<ShopDayClose>(`/dayclose/${id}/approve`, { method: 'PUT' });
+export const rejectDayClose         = (id: string)                 => apiFetch(`/dayclose/${id}/reject`, { method: 'PUT' });
+
+// ═══════════════════════════════════════════════════════════════
+//  SHOP ERP — Farmer Ledger
+// ═══════════════════════════════════════════════════════════════
+export interface LedgerRow {
+  type: 'Invoice' | 'Payment';
+  date: string;
+  description: string;
+  debit: number;
+  credit: number;
+  balance: number;
+  invoiceId?: string;
+  paymentId?: string;
+  status?: string;
+  method?: string;
+}
+
+export interface FarmerLedgerResponse {
+  farmerId: string;
+  from?: string;
+  to?: string;
+  ledger: LedgerRow[];
+  totalDebit: number;
+  totalCredit: number;
+  outstanding: number;
+}
+
+export const fetchFarmerLedger      = (farmerId: string, from?: string, to?: string)    => {
+  const qs = new URLSearchParams({ farmerId, ...(from ? { from } : {}), ...(to ? { to } : {}) }).toString();
+  return apiFetch<FarmerLedgerResponse>(`/ledger?${qs}`);
+};
+
+export const fetchShopFarmers       = (q?: string)                                      => apiFetch<{ _id: string; name: string; phoneNumber: string; location?: string }[]>(`/farmers${q ? '?q=' + encodeURIComponent(q) : ''}`);

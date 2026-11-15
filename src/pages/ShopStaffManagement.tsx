@@ -2,11 +2,14 @@
  * ShopStaffManagement.tsx
  * ─────────────────────────────────────────────────────────────────────────────
  * Owner-only page: register, edit, activate/deactivate shop staff.
- * Connects to real backend endpoints:
+ * Connects to real backend endpoints (confirmed from staffController.ts):
  *   GET  /api/staff          → list all staff
- *   POST /api/staff          → create staff (name, mobile, loginId, password, role, shopId)
- *   PUT  /api/staff/:id      → update staff (name, mobile, role, shopId, isActive)
- *   POST /api/staff/:id/reset-password → trigger password reset
+ *   POST /api/staff          → create staff: { name, email, password, role, tenantId? }
+ *   PUT  /api/staff/:id      → update staff: { name, email, role, tenantId, active }
+ *   POST /api/staff/:id/reset-password → { newPassword }
+ *   POST /api/staff/:id/deactivate     → soft-delete
+ *
+ * AdminUser model fields: name, email, password, role, tenantId, active
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import React, { useState, useEffect, useCallback } from 'react';
@@ -24,33 +27,29 @@ type StaffRole = 'stock_staff' | 'billing_staff' | 'shop_manager' | 'owner';
 interface StaffMember {
   _id: string;
   name: string;
-  mobile: string;
-  loginId: string;
+  email: string;       // backend field (login credential)
   role: StaffRole;
-  shopId?: string;
-  shopName?: string;
-  isActive: boolean;
-  mustChangePassword?: boolean;
+  tenantId?: string;   // backend field for shop/branch
+  active: boolean;     // backend field
   createdAt: string;
-  lastLogin?: string;
-  createdBy?: string;
+  mustChangePassword?: boolean; // optional — backend may not return this
+  lastLogin?: string;           // optional — backend may not return this
 }
 
 interface CreateStaffForm {
   name: string;
-  mobile: string;
-  loginId: string;
+  email: string;       // used as login
   password: string;
   role: StaffRole;
-  shopId: string;
+  tenantId: string;    // shop/branch identifier (optional)
 }
 
 interface UpdateStaffForm {
   name: string;
-  mobile: string;
+  email: string;
   role: StaffRole;
-  shopId: string;
-  isActive: boolean;
+  tenantId: string;
+  active: boolean;
 }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
@@ -72,7 +71,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 const fetchStaff        = ()                       => apiFetch<StaffMember[]>('/staff');
 const createStaff       = (d: CreateStaffForm)     => apiFetch<StaffMember>('/staff', { method: 'POST', body: JSON.stringify(d) });
 const updateStaff       = (id: string, d: UpdateStaffForm) => apiFetch<StaffMember>(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(d) });
-const toggleActive      = (id: string, isActive: boolean) => apiFetch<StaffMember>(`/staff/${id}`, { method: 'PUT', body: JSON.stringify({ isActive }) });
+const toggleActive      = (id: string, active: boolean) => apiFetch<StaffMember>(`/staff/${id}`, { method: 'PUT', body: JSON.stringify({ active }) });
 const resetPassword     = (id: string, newPassword: string) => apiFetch(`/staff/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) });
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -129,11 +128,10 @@ const StaffModal = ({
 
   const [form, setForm] = useState<CreateStaffForm>({
     name:     staff?.name     ?? '',
-    mobile:   staff?.mobile   ?? '',
-    loginId:  staff?.loginId  ?? '',
+    email:    staff?.email    ?? '',
     password: '',
     role:     (staff?.role as StaffRole) ?? 'stock_staff',
-    shopId:   staff?.shopId   ?? '',
+    tenantId: staff?.tenantId ?? '',
   });
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
@@ -144,8 +142,8 @@ const StaffModal = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim())    return setError('Name is required');
-    if (!form.loginId.trim()) return setError('Login ID is required');
+    if (!form.name.trim())  return setError('Name is required');
+    if (!form.email.trim()) return setError('Email is required');
     if (!isEdit && !form.password) return setError('Password is required for new staff');
     if (!isEdit && form.password.length < 8) return setError('Password must be at least 8 characters');
     setError(null);
@@ -154,10 +152,10 @@ const StaffModal = ({
       if (isEdit && staff) {
         await updateStaff(staff._id, {
           name:     form.name,
-          mobile:   form.mobile,
+          email:    form.email,
           role:     form.role,
-          shopId:   form.shopId,
-          isActive: staff.isActive,
+          tenantId: form.tenantId,
+          active:   staff.active,
         });
       } else {
         await createStaff(form);
@@ -216,29 +214,24 @@ const StaffModal = ({
                 <input type="text" value={form.name} onChange={set('name')} placeholder="e.g. Ravi Kumar" className={inputCls} required />
               </div>
 
-              {/* Mobile */}
-              <div>
-                <label className={labelCls}>Mobile Number</label>
-                <input type="tel" value={form.mobile} onChange={set('mobile')} placeholder="9876543210" className={inputCls} />
-              </div>
-
-              {/* Login ID */}
-              <div>
-                <label className={labelCls}>Login Identifier *</label>
+              {/* Email — login credential */}
+              <div className="md:col-span-2">
+                <label className={labelCls}>Email (Login ID) *</label>
                 <input
-                  type="text" value={form.loginId} onChange={set('loginId')}
-                  placeholder="Username or phone"
+                  type="email" value={form.email} onChange={set('email')}
+                  placeholder="staff@aquagrow.com"
                   className={inputCls}
                   disabled={isEdit}
-                  title={isEdit ? 'Login ID cannot be changed after creation' : ''}
+                  title={isEdit ? 'Email cannot be changed after creation' : ''}
                   required
                 />
+                {!isEdit && <p className="text-[10px] text-zinc-600 mt-1">Staff uses this email to log in to the Staff Portal.</p>}
               </div>
 
               {/* Password — only on create */}
               {!isEdit && (
                 <div className="md:col-span-2">
-                  <label className={labelCls}>Initial Password * <span className="text-zinc-600 normal-case">(min 8 chars — staff must change on first login)</span></label>
+                  <label className={labelCls}>Initial Password * <span className="text-zinc-600 normal-case">(min 8 chars)</span></label>
                   <div className="relative">
                     <input
                       type={showPass ? 'text' : 'password'}
@@ -270,10 +263,10 @@ const StaffModal = ({
                 </div>
               </div>
 
-              {/* Shop */}
+              {/* Shop / Branch (tenantId) */}
               <div>
                 <label className={labelCls}>Shop / Branch ID</label>
-                <input type="text" value={form.shopId} onChange={set('shopId')} placeholder="shop_001" className={inputCls} />
+                <input type="text" value={form.tenantId} onChange={set('tenantId')} placeholder="shop_001 (optional)" className={inputCls} />
               </div>
             </div>
 
@@ -429,8 +422,8 @@ const ShopStaffManagement: React.FC = () => {
   const handleToggleActive = async (member: StaffMember) => {
     setTogglingId(member._id);
     try {
-      await toggleActive(member._id, !member.isActive);
-      showToast(`${member.name} ${!member.isActive ? 'activated' : 'deactivated'}`);
+      await toggleActive(member._id, !member.active);
+      showToast(`${member.name} ${!member.active ? 'activated' : 'deactivated'}`);
       await load();
     } catch (err: any) {
       showToast(err.message ?? 'Failed to update status', 'error');
@@ -441,16 +434,15 @@ const ShopStaffManagement: React.FC = () => {
 
   const filtered = staff.filter(s => {
     const matchSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.loginId.toLowerCase().includes(search.toLowerCase()) ||
-      (s.mobile || '').includes(search);
+      s.email.toLowerCase().includes(search.toLowerCase());
     const matchRole = roleFilter === 'all' || s.role === roleFilter;
     return matchSearch && matchRole;
   });
 
   const stats = {
     total:   staff.length,
-    active:  staff.filter(s => s.isActive).length,
-    inactive: staff.filter(s => !s.isActive).length,
+    active:  staff.filter(s =>  s.active).length,
+    inactive: staff.filter(s => !s.active).length,
   };
 
   return (
@@ -604,11 +596,10 @@ const ShopStaffManagement: React.FC = () => {
                     )}
                   </div>
                   <div className="flex items-center gap-3 mt-0.5">
-                    <p className="text-[10px] text-zinc-500 font-mono">{member.loginId}</p>
-                    {member.mobile && <p className="text-[10px] text-zinc-600">{member.mobile}</p>}
-                    {member.shopId && (
+                    <p className="text-[10px] text-zinc-500 font-mono">{member.email}</p>
+                    {member.tenantId && (
                       <p className="text-[10px] text-zinc-600 flex items-center gap-1">
-                        <Store size={9} /> {member.shopId}
+                        <Store size={9} /> {member.tenantId}
                       </p>
                     )}
                   </div>
@@ -626,10 +617,10 @@ const ShopStaffManagement: React.FC = () => {
                 {/* Status */}
                 <div className="shrink-0">
                   <span className={`text-[9px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
-                    member.isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-500/10 text-zinc-500'
+                    member.active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-500/10 text-zinc-500'
                   }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${member.isActive ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
-                    {member.isActive ? 'Active' : 'Inactive'}
+                    <span className={`w-1.5 h-1.5 rounded-full ${member.active ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
+                    {member.active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
 
@@ -655,11 +646,11 @@ const ShopStaffManagement: React.FC = () => {
 
                   {/* Toggle active */}
                   <button
-                    title={member.isActive ? 'Deactivate Account' : 'Activate Account'}
+                    title={member.active ? 'Deactivate Account' : 'Activate Account'}
                     onClick={() => handleToggleActive(member)}
                     disabled={togglingId === member._id}
                     className={`p-2 rounded-xl transition-colors disabled:opacity-50 ${
-                      member.isActive
+                      member.active
                         ? 'hover:bg-red-500/10 text-zinc-500 hover:text-red-400'
                         : 'hover:bg-emerald-500/10 text-zinc-500 hover:text-emerald-400'
                     }`}

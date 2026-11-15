@@ -4,15 +4,25 @@
  * Owner view: see all stock receipts, filter by status, view details.
  * Staff-entered receipts appear here with "Rate Pending" until owner costs them.
  *
- * Endpoints:
- *   GET /receipts              → all stock receipts
+ * Endpoints (backend field names confirmed from routes/receipts.ts & db.ts):
+ *   GET /receipts              → array of Receipt documents (populated items.productId)
  *   GET /receipts/:id          → single receipt detail
+ *
+ * Receipt shape returned by backend:
+ *   _id, supplier, invoiceNumber, receiptDate, createdAt,
+ *   purchaseCostPending: boolean,
+ *   purchaseCostDetails: { purchaseDiscountPercent, purchaseCost, taxAmount, transportCharges, totalEffectiveCost }
+ *   items: [{ productId: { _id, name, code, unit }, quantity, packSize, unit }]
+ *   createdBy: string (user ID)
+ *   attachmentUrl?: string
+ *
+ * All amounts are plain ₹ (NOT paise).
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Package, Search, RefreshCw, AlertTriangle, CheckCircle2,
-  Clock, Calendar, ChevronRight, Eye, X, Loader2,
+  Clock, ChevronRight, Eye, X, Loader2,
   ArrowRight, FileText, Boxes
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -20,27 +30,40 @@ import { BASE_URL, getAdminToken } from '../services/aquagrowApi';
 import { useNavigate } from 'react-router-dom';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+interface PopulatedProduct {
+  _id: string;
+  name: string;
+  code?: string;
+  unit?: string;
+}
+
+interface ReceiptItem {
+  productId: PopulatedProduct | string;
+  batchId?: string;
+  quantity: number;
+  packSize?: number;
+  unit?: string;
+}
+
+interface PurchaseCostDetails {
+  purchaseDiscountPercent?: number;
+  purchaseCost?: number;
+  taxAmount?: number;
+  transportCharges?: number;
+  totalEffectiveCost?: number;
+}
+
 interface StockReceipt {
   _id: string;
-  supplierName?: string;
+  supplier: string;
   invoiceNumber?: string;
   receiptDate: string;
-  productId?: string;
-  productName?: string;
-  batchNumber?: string;
-  expiryDate?: string;
-  enteredQty: number;
-  unit: string;
-  quantityBase: number;
-  baseUnit: string;
-  packSize?: number;
-  costingComplete: boolean;
-  purchaseRatePaise?: number;
-  approvedSellingRatePaise?: number;
-  createdByName?: string;
-  shopId?: string;
   createdAt: string;
+  purchaseCostPending: boolean;
+  purchaseCostDetails?: PurchaseCostDetails;
+  items: ReceiptItem[];
   attachmentUrl?: string;
+  createdBy?: string;
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────
@@ -61,13 +84,38 @@ async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
 
 const fetchReceipts = () => apiFetch<StockReceipt[]>('/receipts');
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtDate = (s?: string) => s ? new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-const fmtRs   = (p?: number) => p != null ? `₹${(p / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—';
-const Spinner = () => <Loader2 size={15} className="animate-spin" />;
+// Backend amounts are plain ₹
+const fmtRs   = (n?: number) => n != null ? `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—';
+
+// Get the first item's product name from populated response
+function firstProductName(receipt: StockReceipt): string {
+  const item = receipt.items?.[0];
+  if (!item) return 'Unknown Product';
+  if (typeof item.productId === 'object' && item.productId !== null) {
+    return item.productId.name ?? 'Unknown Product';
+  }
+  return 'Unknown Product';
+}
+
+// Get summary of items (product names)
+function itemsSummary(receipt: StockReceipt): string {
+  if (!receipt.items?.length) return '—';
+  return receipt.items.map(it => {
+    const name = typeof it.productId === 'object' && it.productId !== null
+      ? it.productId.name
+      : 'Product';
+    return `${it.quantity} ${it.unit ?? ''} ${name}`.trim();
+  }).join(', ');
+}
 
 // ─── Detail Modal ─────────────────────────────────────────────────────────────
-const ReceiptModal = ({ receipt, onClose, onCost }: { receipt: StockReceipt; onClose: () => void; onCost: () => void }) => (
+const ReceiptModal = ({ receipt, onClose, onCost }: {
+  receipt: StockReceipt;
+  onClose: () => void;
+  onCost: () => void;
+}) => (
   <AnimatePresence>
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -76,39 +124,78 @@ const ReceiptModal = ({ receipt, onClose, onCost }: { receipt: StockReceipt; onC
     >
       <motion.div
         initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-lg"
+        className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-5 border-b border-white/5 flex items-center justify-between">
+        <div className="p-5 border-b border-white/5 flex items-center justify-between sticky top-0 bg-zinc-900">
           <div>
             <h3 className="font-display font-bold">Stock Receipt Detail</h3>
-            <p className="text-xs text-zinc-500 mt-0.5">{receipt.productName ?? 'Unknown Product'}</p>
+            <p className="text-xs text-zinc-500 mt-0.5">{receipt.supplier}</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/5 text-zinc-400"><X size={16} /></button>
         </div>
+
         <div className="p-5 space-y-3">
+          {/* Basic info */}
           {[
-            ['Product',    receipt.productName ?? '—'],
-            ['Supplier',   receipt.supplierName ?? '—'],
+            ['Supplier',    receipt.supplier],
             ['Invoice No.', receipt.invoiceNumber ?? '—'],
             ['Receipt Date', fmtDate(receipt.receiptDate)],
-            ['Batch No.',  receipt.batchNumber ?? '—'],
-            ['Expiry',     fmtDate(receipt.expiryDate)],
-            ['Quantity Entered', `${receipt.enteredQty} ${receipt.unit}`],
-            ['Base Quantity',    `${receipt.quantityBase} ${receipt.baseUnit}`],
-            ['Pack Size',  receipt.packSize ? `${receipt.packSize} ${receipt.baseUnit}` : '—'],
-            ['Recorded By', receipt.createdByName ?? '—'],
-            ['Shop',       receipt.shopId ?? '—'],
-            ['Costed At',  receipt.costingComplete ? (receipt.purchaseRatePaise ? fmtRs(receipt.purchaseRatePaise) + '/unit' : 'Yes') : '—'],
-            ['Selling Rate', fmtRs(receipt.approvedSellingRatePaise)],
+            ['Created',     fmtDate(receipt.createdAt)],
+            ['Status',      receipt.purchaseCostPending ? 'Rate Pending' : 'Costed'],
           ].map(([label, value]) => (
             <div key={label} className="flex items-start justify-between gap-4 text-xs">
               <span className="text-zinc-500 shrink-0 w-32">{label}</span>
-              <span className="text-zinc-200 text-right font-medium">{value}</span>
+              <span className={`text-right font-medium ${
+                label === 'Status'
+                  ? (receipt.purchaseCostPending ? 'text-amber-400' : 'text-emerald-400')
+                  : 'text-zinc-200'
+              }`}>{value}</span>
             </div>
           ))}
+
+          {/* Items */}
+          <div className="pt-2">
+            <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mb-2">Items</p>
+            <div className="space-y-2">
+              {receipt.items.map((it, idx) => {
+                const prod = typeof it.productId === 'object' && it.productId !== null ? it.productId : null;
+                return (
+                  <div key={idx} className="p-3 rounded-xl bg-white/3 border border-white/5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-zinc-100">{prod?.name ?? '—'}</span>
+                      {prod?.code && <span className="text-zinc-600">{prod.code}</span>}
+                    </div>
+                    <p className="text-zinc-500 mt-1">{it.quantity} {it.unit ?? prod?.unit ?? 'units'}{it.packSize ? ` · pack: ${it.packSize}` : ''}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Purchase cost details if costed */}
+          {!receipt.purchaseCostPending && receipt.purchaseCostDetails && (
+            <div className="pt-2">
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mb-2">Cost Details</p>
+              <div className="space-y-2">
+                {[
+                  ['Purchase Cost',     fmtRs(receipt.purchaseCostDetails.purchaseCost)],
+                  ['Discount %',        `${receipt.purchaseCostDetails.purchaseDiscountPercent ?? 0}%`],
+                  ['Tax Amount',        fmtRs(receipt.purchaseCostDetails.taxAmount)],
+                  ['Transport',         fmtRs(receipt.purchaseCostDetails.transportCharges)],
+                  ['Total Effective',   fmtRs(receipt.purchaseCostDetails.totalEffectiveCost)],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-start justify-between gap-4 text-xs">
+                    <span className="text-zinc-500 shrink-0 w-32">{label}</span>
+                    <span className="text-zinc-200 text-right font-medium">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-        {!receipt.costingComplete && (
+
+        {receipt.purchaseCostPending && (
           <div className="p-5 border-t border-white/5">
             <button
               onClick={() => { onClose(); onCost(); }}
@@ -149,22 +236,22 @@ const StockInwardReview: React.FC = () => {
   useEffect(() => { load(); }, [load]);
 
   const filtered = receipts.filter(r => {
+    const name = firstProductName(r).toLowerCase();
     const matchSearch =
-      (r.productName ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      (r.supplierName ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      (r.invoiceNumber ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      (r.batchNumber ?? '').toLowerCase().includes(search.toLowerCase());
+      name.includes(search.toLowerCase()) ||
+      (r.supplier ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.invoiceNumber ?? '').toLowerCase().includes(search.toLowerCase());
     const matchFilter =
       filter === 'all' ||
-      (filter === 'pending' && !r.costingComplete) ||
-      (filter === 'costed'  && r.costingComplete);
+      (filter === 'pending' &&  r.purchaseCostPending) ||
+      (filter === 'costed'  && !r.purchaseCostPending);
     return matchSearch && matchFilter;
   });
 
   const stats = {
     total:   receipts.length,
-    pending: receipts.filter(r => !r.costingComplete).length,
-    costed:  receipts.filter(r =>  r.costingComplete).length,
+    pending: receipts.filter(r =>  r.purchaseCostPending).length,
+    costed:  receipts.filter(r => !r.purchaseCostPending).length,
   };
 
   return (
@@ -221,7 +308,7 @@ const StockInwardReview: React.FC = () => {
             <Search size={13} className="text-zinc-500 shrink-0" />
             <input
               value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search product, supplier, invoice, batch…"
+              placeholder="Search product, supplier, invoice…"
               className="bg-transparent text-sm text-zinc-100 outline-none flex-1 placeholder:text-zinc-600"
             />
           </div>
@@ -274,60 +361,55 @@ const StockInwardReview: React.FC = () => {
         {/* Rows */}
         {!loading && !error && filtered.length > 0 && (
           <div className="divide-y divide-white/5">
-            {filtered.map((r, i) => (
-              <motion.div
-                key={r._id}
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-                className="p-4 flex items-center gap-4 hover:bg-white/2 transition-all cursor-pointer"
-                onClick={() => setSelected(r)}
-              >
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                  r.costingComplete
-                    ? 'bg-emerald-500/10 border border-emerald-500/20'
-                    : 'bg-amber-500/10 border border-amber-500/20'
-                }`}>
-                  <Package size={14} className={r.costingComplete ? 'text-emerald-400' : 'text-amber-400'} />
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-bold text-zinc-100">{r.productName ?? 'Unknown Product'}</p>
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                      r.costingComplete
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                    }`}>
-                      {r.costingComplete ? 'Costed' : 'Rate Pending'}
-                    </span>
+            {filtered.map((r, i) => {
+              const costed = !r.purchaseCostPending;
+              return (
+                <motion.div
+                  key={r._id}
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+                  className="p-4 flex items-center gap-4 hover:bg-white/2 transition-all cursor-pointer"
+                  onClick={() => setSelected(r)}
+                >
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    costed
+                      ? 'bg-emerald-500/10 border border-emerald-500/20'
+                      : 'bg-amber-500/10 border border-amber-500/20'
+                  }`}>
+                    <Package size={14} className={costed ? 'text-emerald-400' : 'text-amber-400'} />
                   </div>
-                  <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                    <span className="text-[10px] text-zinc-500">{r.supplierName ?? '—'}</span>
-                    {r.invoiceNumber && <span className="text-[10px] text-zinc-600">Inv: {r.invoiceNumber}</span>}
-                    {r.batchNumber   && <span className="text-[10px] text-zinc-600">Batch: {r.batchNumber}</span>}
-                    <span className="text-[10px] text-zinc-600">{fmtDate(r.receiptDate)}</span>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-bold text-zinc-100">{firstProductName(r)}</p>
+                      {r.items.length > 1 && (
+                        <span className="text-[9px] text-zinc-500">+{r.items.length - 1} more</span>
+                      )}
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                        costed
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                      }`}>
+                        {costed ? 'Costed' : 'Rate Pending'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                      <span className="text-[10px] text-zinc-500">{r.supplier}</span>
+                      {r.invoiceNumber && <span className="text-[10px] text-zinc-600">Inv: {r.invoiceNumber}</span>}
+                      <span className="text-[10px] text-zinc-600">{fmtDate(r.receiptDate)}</span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="hidden md:block text-right shrink-0">
-                  <p className="text-sm font-bold text-zinc-200">{r.enteredQty} {r.unit}</p>
-                  <p className="text-[10px] text-zinc-600">{r.quantityBase} {r.baseUnit} base</p>
-                </div>
+                  <div className="hidden md:block text-right shrink-0">
+                    <p className="text-xs font-bold text-zinc-200">{r.items.length} item{r.items.length !== 1 ? 's' : ''}</p>
+                    {costed && r.purchaseCostDetails?.totalEffectiveCost != null && (
+                      <p className="text-[10px] text-emerald-400">{fmtRs(r.purchaseCostDetails.totalEffectiveCost)}</p>
+                    )}
+                  </div>
 
-                <div className="hidden lg:block text-right shrink-0">
-                  <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Selling Rate</p>
-                  <p className={`text-xs font-bold mt-0.5 ${r.approvedSellingRatePaise ? 'text-emerald-400' : 'text-zinc-600'}`}>
-                    {fmtRs(r.approvedSellingRatePaise)}
-                  </p>
-                </div>
-
-                <div className="shrink-0 text-right">
-                  <p className="text-[9px] text-zinc-600">By</p>
-                  <p className="text-[10px] text-zinc-400 mt-0.5">{r.createdByName ?? '—'}</p>
-                </div>
-
-                <Eye size={13} className="text-zinc-600 shrink-0" />
-              </motion.div>
-            ))}
+                  <Eye size={13} className="text-zinc-600 shrink-0" />
+                </motion.div>
+              );
+            })}
           </div>
         )}
 

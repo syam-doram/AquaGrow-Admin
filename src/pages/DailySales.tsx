@@ -22,32 +22,33 @@ import { motion, AnimatePresence } from 'motion/react';
 import { BASE_URL, getAdminToken } from '../services/aquagrowApi';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+// Backend stores plain ₹ numbers (NOT paise). Status is 'draft'|'finalized'|'paid'.
 interface InvoiceItem {
-  productId: string;
+  productId: string | { _id: string; name: string; code: string; unit: string };
   productName?: string;
-  quantityBase: number;
-  unit: string;
-  ratePaise: number;
-  amountPaise: number;
+  quantity: number;
+  unit?: string;
+  unitPrice: number;    // ₹
+  discountPercent?: number;
+  total: number;        // ₹
 }
 
 interface InvoicePayment {
-  method: 'cash' | 'upi' | 'bank' | 'credit';
-  amountPaise: number;
+  method: string;
+  amount: number;        // ₹
   reference?: string;
-  paidAt?: string;
+  createdAt?: string;
 }
 
 interface Invoice {
   _id: string;
   invoiceNumber?: string;
-  farmerId: string;
+  farmerId: string | { _id: string; name: string; phoneNumber: string };
   farmerName?: string;
   farmerMobile?: string;
   items: InvoiceItem[];
-  totalAmountPaise: number;
-  paidAmountPaise: number;
-  status: 'UNPAID' | 'PARTIAL' | 'PAID';
+  totalAmount: number;   // ₹
+  status: 'draft' | 'finalized' | 'paid' | 'cancelled';
   payments: InvoicePayment[];
   createdAt: string;
   createdByName?: string;
@@ -58,16 +59,10 @@ interface Invoice {
 interface DailySummary {
   date: string;
   invoiceCount: number;
-  uniqueFarmers: number;
-  totalSalesPaise: number;
-  collectionByMethod: {
-    cash: number;
-    upi: number;
-    bank: number;
-    credit: number;
-  };
-  newCreditPaise: number;
-  paidAgainstPriorPaise: number;
+  totalRevenue: number;  // ₹
+  paidCount: number;
+  draftCount: number;
+  finalizedCount: number;
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────
@@ -93,130 +88,152 @@ const fetchSummary = (date: string) =>
   apiFetch<DailySummary>(`/invoices/summary?date=${date}`).catch(() => null);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-const fromPaise = (p: number) => (p / 100);
-const fmtRs = (p: number) => `₹${(p / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+// Backend stores plain ₹ — no paise conversion needed.
+const fmtRs = (v: number) => `₹${(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const fmtDate = (s: string) => new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 const fmtTime = (s: string) => new Date(s).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const Spinner = () => <Loader2 size={15} className="animate-spin" />;
 
-const STATUS_META = {
-  UNPAID:  { label: 'Unpaid',  cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
-  PARTIAL: { label: 'Partial', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-  PAID:    { label: 'Paid',    cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+// Map backend status values to display metadata
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+  draft:      { label: 'Unpaid',  cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  finalized:  { label: 'Partial', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+  paid:       { label: 'Paid',    cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+  cancelled:  { label: 'Cancelled', cls: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20' },
 };
 
 const METHOD_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  cash:   { label: 'Cash',       icon: <Banknote size={12} />,    color: 'text-emerald-400' },
-  upi:    { label: 'UPI',        icon: <Smartphone size={12} />,  color: 'text-blue-400' },
-  bank:   { label: 'Bank',       icon: <CreditCard size={12} />,  color: 'text-purple-400' },
-  credit: { label: 'Credit',     icon: <ArrowRight size={12} />,  color: 'text-amber-400' },
+  Cash:   { label: 'Cash',   icon: <Banknote size={12} />,    color: 'text-emerald-400' },
+  UPI:    { label: 'UPI',    icon: <Smartphone size={12} />,  color: 'text-blue-400' },
+  Bank:   { label: 'Bank',   icon: <CreditCard size={12} />,  color: 'text-purple-400' },
+  Credit: { label: 'Credit', icon: <ArrowRight size={12} />,  color: 'text-amber-400' },
+  // lowercase aliases
+  cash:   { label: 'Cash',   icon: <Banknote size={12} />,    color: 'text-emerald-400' },
+  upi:    { label: 'UPI',    icon: <Smartphone size={12} />,  color: 'text-blue-400' },
+  bank:   { label: 'Bank',   icon: <CreditCard size={12} />,  color: 'text-purple-400' },
+  credit: { label: 'Credit', icon: <ArrowRight size={12} />,  color: 'text-amber-400' },
 };
 
 // ─── Invoice Detail Modal ─────────────────────────────────────────────────────
-const InvoiceModal = ({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) => (
-  <AnimatePresence>
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-      onClick={onClose}
-    >
+const InvoiceModal = ({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) => {
+  // Derive paid amount by summing payments array
+  const paidAmount = invoice.payments.reduce((s, p) => s + (p.amount || 0), 0);
+  const outstanding = Math.max(0, invoice.totalAmount - paidAmount);
+  const statusMeta = STATUS_META[invoice.status] ?? STATUS_META['draft'];
+  // Resolve farmerId if populated
+  const farmerName = invoice.farmerName ?? (typeof invoice.farmerId === 'object' ? (invoice.farmerId as any).name : 'Farmer');
+  const farmerPhone = invoice.farmerMobile ?? (typeof invoice.farmerId === 'object' ? (invoice.farmerId as any).phoneNumber : String(invoice.farmerId));
+
+  return (
+    <AnimatePresence>
       <motion.div
-        initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+        onClick={onClose}
       >
-        {/* Header */}
-        <div className="p-5 border-b border-white/5 flex items-center justify-between">
-          <div>
-            <h3 className="font-display font-bold">Invoice #{invoice.invoiceNumber ?? invoice._id.slice(-6).toUpperCase()}</h3>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              {fmtDate(invoice.createdAt)} · {fmtTime(invoice.createdAt)}
-              {invoice.createdByName && ` · by ${invoice.createdByName}`}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className={`text-[9px] font-bold px-2.5 py-1 rounded-full border ${STATUS_META[invoice.status].cls}`}>
-              {STATUS_META[invoice.status].label}
-            </span>
-            <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/5 text-zinc-400"><X size={16} /></button>
-          </div>
-        </div>
-
-        <div className="p-5 space-y-5">
-          {/* Farmer */}
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-white/3 border border-white/8">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-              <Users size={14} className="text-emerald-400" />
-            </div>
+        <motion.div
+          initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="p-5 border-b border-white/5 flex items-center justify-between">
             <div>
-              <p className="text-sm font-bold text-zinc-100">{invoice.farmerName ?? 'Farmer'}</p>
-              <p className="text-xs text-zinc-500">{invoice.farmerMobile ?? invoice.farmerId}</p>
+              <h3 className="font-display font-bold">Invoice #{invoice.invoiceNumber ?? invoice._id.slice(-6).toUpperCase()}</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                {fmtDate(invoice.createdAt)} · {fmtTime(invoice.createdAt)}
+                {invoice.createdByName && ` · by ${invoice.createdByName}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className={`text-[9px] font-bold px-2.5 py-1 rounded-full border ${statusMeta.cls}`}>
+                {statusMeta.label}
+              </span>
+              <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/5 text-zinc-400"><X size={16} /></button>
             </div>
           </div>
 
-          {/* Items */}
-          <div>
-            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-3">Items ({invoice.items.length})</p>
-            <div className="rounded-xl border border-white/8 overflow-hidden">
-              <div className="grid grid-cols-12 px-4 py-2 bg-white/3 text-[9px] text-zinc-500 uppercase font-bold tracking-wider">
-                <span className="col-span-5">Product</span>
-                <span className="col-span-2 text-right">Qty</span>
-                <span className="col-span-2 text-right">Rate</span>
-                <span className="col-span-3 text-right">Amount</span>
+          <div className="p-5 space-y-5">
+            {/* Farmer */}
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-white/3 border border-white/8">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                <Users size={14} className="text-emerald-400" />
               </div>
-              {invoice.items.map((item, i) => (
-                <div key={i} className={`grid grid-cols-12 px-4 py-3 text-xs ${i > 0 ? 'border-t border-white/5' : ''}`}>
-                  <span className="col-span-5 text-zinc-200 font-medium">{item.productName ?? item.productId}</span>
-                  <span className="col-span-2 text-right text-zinc-400">{item.quantityBase} {item.unit}</span>
-                  <span className="col-span-2 text-right text-zinc-400">{fmtRs(item.ratePaise)}</span>
-                  <span className="col-span-3 text-right text-zinc-200 font-bold">{fmtRs(item.amountPaise)}</span>
+              <div>
+                <p className="text-sm font-bold text-zinc-100">{farmerName}</p>
+                <p className="text-xs text-zinc-500">{farmerPhone}</p>
+              </div>
+            </div>
+
+            {/* Items */}
+            <div>
+              <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-3">Items ({invoice.items.length})</p>
+              <div className="rounded-xl border border-white/8 overflow-hidden">
+                <div className="grid grid-cols-12 px-4 py-2 bg-white/3 text-[9px] text-zinc-500 uppercase font-bold tracking-wider">
+                  <span className="col-span-5">Product</span>
+                  <span className="col-span-2 text-right">Qty</span>
+                  <span className="col-span-2 text-right">Rate</span>
+                  <span className="col-span-3 text-right">Amount</span>
                 </div>
-              ))}
-              <div className="grid grid-cols-12 px-4 py-3 border-t border-white/10 bg-white/3">
-                <span className="col-span-9 text-right text-xs font-bold text-zinc-300">Total</span>
-                <span className="col-span-3 text-right text-sm font-bold text-emerald-400">{fmtRs(invoice.totalAmountPaise)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Payments */}
-          {invoice.payments.length > 0 && (
-            <div>
-              <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-3">Payments</p>
-              <div className="space-y-2">
-                {invoice.payments.map((pay, i) => {
-                  const meta = METHOD_META[pay.method] ?? { label: pay.method, icon: <DollarSign size={12} />, color: 'text-zinc-400' };
+                {invoice.items.map((item, i) => {
+                  const prodName = item.productName ??
+                    (typeof item.productId === 'object' ? (item.productId as any).name : String(item.productId));
+                  const unit = item.unit ?? (typeof item.productId === 'object' ? (item.productId as any).unit : '');
                   return (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/3 border border-white/8">
-                      <div className="flex items-center gap-2">
-                        <span className={meta.color}>{meta.icon}</span>
-                        <span className="text-xs text-zinc-300">{meta.label}</span>
-                        {pay.reference && <span className="text-[10px] text-zinc-600">· {pay.reference}</span>}
-                      </div>
-                      <span className="text-xs font-bold text-zinc-200">{fmtRs(pay.amountPaise)}</span>
+                    <div key={i} className={`grid grid-cols-12 px-4 py-3 text-xs ${i > 0 ? 'border-t border-white/5' : ''}`}>
+                      <span className="col-span-5 text-zinc-200 font-medium">{prodName}</span>
+                      <span className="col-span-2 text-right text-zinc-400">{item.quantity} {unit}</span>
+                      <span className="col-span-2 text-right text-zinc-400">{fmtRs(item.unitPrice)}</span>
+                      <span className="col-span-3 text-right text-zinc-200 font-bold">{fmtRs(item.total)}</span>
                     </div>
                   );
                 })}
-              </div>
-              <div className="flex justify-between p-3 mt-2 rounded-xl bg-white/3 border border-white/8">
-                <span className="text-xs text-zinc-400">Paid so far</span>
-                <span className="text-xs font-bold text-emerald-400">{fmtRs(invoice.paidAmountPaise)}</span>
-              </div>
-              {invoice.totalAmountPaise > invoice.paidAmountPaise && (
-                <div className="flex justify-between p-3 mt-1 rounded-xl bg-red-500/5 border border-red-500/15">
-                  <span className="text-xs text-zinc-400">Outstanding</span>
-                  <span className="text-xs font-bold text-red-400">{fmtRs(invoice.totalAmountPaise - invoice.paidAmountPaise)}</span>
+                <div className="grid grid-cols-12 px-4 py-3 border-t border-white/10 bg-white/3">
+                  <span className="col-span-9 text-right text-xs font-bold text-zinc-300">Total</span>
+                  <span className="col-span-3 text-right text-sm font-bold text-emerald-400">{fmtRs(invoice.totalAmount)}</span>
                 </div>
-              )}
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Payments */}
+            {invoice.payments.length > 0 && (
+              <div>
+                <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-3">Payments</p>
+                <div className="space-y-2">
+                  {invoice.payments.map((pay, i) => {
+                    const meta = METHOD_META[pay.method] ?? { label: pay.method, icon: <DollarSign size={12} />, color: 'text-zinc-400' };
+                    return (
+                      <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/3 border border-white/8">
+                        <div className="flex items-center gap-2">
+                          <span className={meta.color}>{meta.icon}</span>
+                          <span className="text-xs text-zinc-300">{meta.label}</span>
+                          {pay.reference && <span className="text-[10px] text-zinc-600">· {pay.reference}</span>}
+                        </div>
+                        <span className="text-xs font-bold text-zinc-200">{fmtRs(pay.amount)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between p-3 mt-2 rounded-xl bg-white/3 border border-white/8">
+                  <span className="text-xs text-zinc-400">Paid so far</span>
+                  <span className="text-xs font-bold text-emerald-400">{fmtRs(paidAmount)}</span>
+                </div>
+                {outstanding > 0 && (
+                  <div className="flex justify-between p-3 mt-1 rounded-xl bg-red-500/5 border border-red-500/15">
+                    <span className="text-xs text-zinc-400">Outstanding</span>
+                    <span className="text-xs font-bold text-red-400">{fmtRs(outstanding)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </motion.div>
       </motion.div>
-    </motion.div>
-  </AnimatePresence>
-);
+    </AnimatePresence>
+  );
+};
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const DailySales: React.FC = () => {
@@ -246,27 +263,41 @@ const DailySales: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
+  // Helper: resolve farmer name from populated or plain field
+  const farmerName = (inv: Invoice) =>
+    inv.farmerName ?? (typeof inv.farmerId === 'object' ? (inv.farmerId as any).name : 'Farmer');
+  const farmerPhone = (inv: Invoice) =>
+    inv.farmerMobile ?? (typeof inv.farmerId === 'object' ? (inv.farmerId as any).phoneNumber : '');
+  const farmerKey = (inv: Invoice) =>
+    typeof inv.farmerId === 'object' ? (inv.farmerId as any)._id : String(inv.farmerId);
+
   const filtered = invoices.filter(inv => {
-    const matchSearch = (inv.farmerName ?? '').toLowerCase().includes(search.toLowerCase()) ||
+    const name  = farmerName(inv).toLowerCase();
+    const phone = farmerPhone(inv);
+    const matchSearch = name.includes(search.toLowerCase()) ||
       (inv.invoiceNumber ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      (inv.farmerMobile ?? '').includes(search);
+      phone.includes(search);
     const matchStatus = statusFilter === 'ALL' || inv.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
-  // Compute summary from invoices if backend summary not available
+  // Compute totals from invoice array — backend amounts are plain ₹
   const computedSummary = {
     invoiceCount:   invoices.length,
-    uniqueFarmers:  new Set(invoices.map(i => i.farmerId)).size,
-    totalSalesPaise: invoices.reduce((s, i) => s + i.totalAmountPaise, 0),
-    collectedPaise:  invoices.reduce((s, i) => s + i.paidAmountPaise, 0),
-    creditPaise:     invoices.filter(i => i.status !== 'PAID').reduce((s, i) => s + (i.totalAmountPaise - i.paidAmountPaise), 0),
+    uniqueFarmers:  new Set(invoices.map(i => farmerKey(i))).size,
+    totalSales:     invoices.reduce((s, i) => s + (i.totalAmount || 0), 0),
+    collected:      invoices.reduce((s, i) => s + i.payments.reduce((ps, p) => ps + (p.amount || 0), 0), 0),
+    credit:         invoices.filter(i => i.status !== 'paid').reduce((s, i) => {
+      const paid = i.payments.reduce((ps, p) => ps + (p.amount || 0), 0);
+      return s + Math.max(0, (i.totalAmount || 0) - paid);
+    }, 0),
   };
 
   // Payment breakdown from individual invoices
   const paymentBreakdown = invoices.reduce((acc, inv) => {
     inv.payments.forEach(p => {
-      acc[p.method] = (acc[p.method] ?? 0) + p.amountPaise;
+      const key = p.method ?? 'Other';
+      acc[key] = (acc[key] ?? 0) + (p.amount || 0);
     });
     return acc;
   }, {} as Record<string, number>);
@@ -305,11 +336,11 @@ const DailySales: React.FC = () => {
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { label: 'Invoices',       value: computedSummary.invoiceCount,  color: 'text-blue-400',    icon: <FileText size={16} /> },
-          { label: 'Farmers',        value: computedSummary.uniqueFarmers,  color: 'text-purple-400',  icon: <Users size={16} /> },
-          { label: 'Total Sales',    value: fmtRs(computedSummary.totalSalesPaise), color: 'text-zinc-100', icon: <TrendingUp size={16} /> },
-          { label: 'Collected',      value: fmtRs(computedSummary.collectedPaise), color: 'text-emerald-400', icon: <CheckCircle2 size={16} /> },
-          { label: 'On Credit',      value: fmtRs(computedSummary.creditPaise),   color: 'text-amber-400',   icon: <Clock size={16} /> },
+          { label: 'Invoices',    value: computedSummary.invoiceCount,  color: 'text-blue-400',    icon: <FileText size={16} /> },
+          { label: 'Farmers',     value: computedSummary.uniqueFarmers,  color: 'text-purple-400',  icon: <Users size={16} /> },
+          { label: 'Total Sales', value: fmtRs(computedSummary.totalSales), color: 'text-zinc-100', icon: <TrendingUp size={16} /> },
+          { label: 'Collected',   value: fmtRs(computedSummary.collected), color: 'text-emerald-400', icon: <CheckCircle2 size={16} /> },
+          { label: 'On Credit',   value: fmtRs(computedSummary.credit),   color: 'text-amber-400',   icon: <Clock size={16} /> },
         ].map(({ label, value, color, icon }) => (
           <div key={label} className="glass-panel p-4">
             <div className="flex items-center justify-between mb-2">
@@ -326,9 +357,9 @@ const DailySales: React.FC = () => {
         <div className="glass-panel p-5">
           <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-4">Collections by Payment Method</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {(['cash', 'upi', 'bank', 'credit'] as const).map(method => {
+            {(['Cash', 'UPI', 'Bank', 'Credit'] as const).map(method => {
               const meta = METHOD_META[method];
-              const amount = paymentBreakdown[method] ?? 0;
+              const amount = (paymentBreakdown[method] ?? 0) + (paymentBreakdown[method.toLowerCase()] ?? 0);
               return (
                 <div key={method} className="p-4 rounded-xl bg-white/3 border border-white/8">
                   <div className="flex items-center gap-2 mb-2">
@@ -356,17 +387,20 @@ const DailySales: React.FC = () => {
             />
           </div>
           <div className="flex items-center gap-1 p-1 bg-white/4 rounded-xl border border-white/8">
-            {(['ALL', 'UNPAID', 'PARTIAL', 'PAID'] as const).map(s => (
-              <button key={s} onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                  statusFilter === s
-                    ? 'bg-emerald-500 text-white'
-                    : 'text-zinc-500 hover:text-zinc-200'
-                }`}
-              >
-                {s === 'ALL' ? 'All' : STATUS_META[s].label}
-              </button>
-            ))}
+            {(['ALL', 'draft', 'finalized', 'paid'] as const).map(s => {
+              const label = s === 'ALL' ? 'All' : (STATUS_META[s]?.label ?? s);
+              return (
+                <button key={s} onClick={() => setStatusFilter(s as any)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                    statusFilter === s
+                      ? 'bg-emerald-500 text-white'
+                      : 'text-zinc-500 hover:text-zinc-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -404,7 +438,9 @@ const DailySales: React.FC = () => {
         {!loading && !error && filtered.length > 0 && (
           <div className="divide-y divide-white/5">
             {filtered.map((inv, i) => {
-              const statusMeta = STATUS_META[inv.status];
+              const statusMeta = STATUS_META[inv.status] ?? STATUS_META['draft'];
+              const name = inv.farmerName ?? (typeof inv.farmerId === 'object' ? (inv.farmerId as any).name : 'Farmer');
+              const paidAmt = inv.payments.reduce((s, p) => s + (p.amount || 0), 0);
               return (
                 <motion.div
                   key={inv._id}
@@ -418,7 +454,7 @@ const DailySales: React.FC = () => {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-bold text-zinc-100">{inv.farmerName ?? 'Farmer'}</p>
+                      <p className="text-sm font-bold text-zinc-100">{name}</p>
                       <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${statusMeta.cls}`}>
                         {statusMeta.label}
                       </span>
@@ -446,10 +482,10 @@ const DailySales: React.FC = () => {
                   </div>
 
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-bold text-zinc-100">{fmtRs(inv.totalAmountPaise)}</p>
-                    {inv.paidAmountPaise < inv.totalAmountPaise && (
+                    <p className="text-sm font-bold text-zinc-100">{fmtRs(inv.totalAmount)}</p>
+                    {paidAmt < inv.totalAmount && (
                       <p className="text-[10px] text-amber-400">
-                        Paid: {fmtRs(inv.paidAmountPaise)}
+                        Paid: {fmtRs(paidAmt)}
                       </p>
                     )}
                   </div>
@@ -468,7 +504,7 @@ const DailySales: React.FC = () => {
               {filtered.length} of {invoices.length} invoices
             </p>
             <p className="text-xs text-zinc-400 font-bold">
-              Total shown: {fmtRs(filtered.reduce((s, i) => s + i.totalAmountPaise, 0))}
+              Total shown: {fmtRs(filtered.reduce((s, i) => s + (i.totalAmount || 0), 0))}
             </p>
           </div>
         )}
