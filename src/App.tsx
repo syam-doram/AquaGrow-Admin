@@ -5,7 +5,7 @@ import { useAuth } from './context/AuthContext';
 import type { AdminRole } from './context/AuthContext';
 import Layout from './components/Layout';
 
-// Pages
+// ── Existing Pages ────────────────────────────────────────────────────────────
 import Dashboard from './pages/Dashboard';
 import Operations from './pages/Operations';
 import ProviderRegistry from './pages/ProviderRegistry';
@@ -31,6 +31,14 @@ import SettingsPage from './pages/Settings';
 import RBACManagement from './pages/RBACManagement';
 import FarmIntelligence from './pages/FarmIntelligence';
 
+// ── NEW: AquaGrow ERP Pages ───────────────────────────────────────────────────
+import ShopStaffManagement from './pages/ShopStaffManagement';
+import StockCostingPricing from './pages/StockCostingPricing';
+import DailySales from './pages/DailySales';
+import StockInwardReview from './pages/StockInwardReview';
+import DayCloseApproval from './pages/DayCloseApproval';
+import FarmerLedger from './pages/FarmerLedger';
+
 // ─── Route Guards ─────────────────────────────────────────────────────────────
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
@@ -54,7 +62,7 @@ const RoleRoute = ({ children, roles }: { children: React.ReactNode; roles: Admi
   return <Navigate to="/" replace />;
 };
 
-// Placeholder for future pages
+// Placeholder for pages not yet implemented
 const PlaceholderPage = ({ title }: { title: string }) => (
   <div className="space-y-8">
     <h1 className="text-4xl font-display font-bold tracking-tight">{title}</h1>
@@ -67,6 +75,12 @@ const PlaceholderPage = ({ title }: { title: string }) => (
     </div>
   </div>
 );
+
+// ─── All owner/admin roles that should see ERP pages ─────────────────────────
+const ERP_ROLES: AdminRole[] = [
+  'super_admin', 'finance_admin', 'operations_admin',
+  'sales_admin', 'inventory_admin', 'hr_admin',
+];
 
 const App = () => {
   return (
@@ -83,6 +97,20 @@ const App = () => {
           element={<ProtectedRoute><Layout><Alerts /></Layout></ProtectedRoute>} />
         <Route path="/settings"
           element={<ProtectedRoute><Layout><SettingsPage /></Layout></ProtectedRoute>} />
+
+        {/* ── AquaGrow ERP — Owner / Admin pages ──────────────── */}
+        <Route path="/shop-staff"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><ShopStaffManagement /></Layout></RoleRoute>} />
+        <Route path="/costing-pricing"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><StockCostingPricing /></Layout></RoleRoute>} />
+        <Route path="/daily-sales"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><DailySales /></Layout></RoleRoute>} />
+        <Route path="/stock-inward-review"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><StockInwardReview /></Layout></RoleRoute>} />
+        <Route path="/dayclose-approval"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><DayCloseApproval /></Layout></RoleRoute>} />
+        <Route path="/farmer-ledger"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><FarmerLedger /></Layout></RoleRoute>} />
 
         {/* ── Farmers: operations + hr ─────────────────────────── */}
         <Route path="/harvests"
