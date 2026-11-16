@@ -353,6 +353,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       label: 'Shop ERP', emoji: '🏪',
       items: [
         { icon: UserCheck,       label: 'Shop Staff',        path: '/shop-staff',          accent: 'text-emerald-400' },
+        { icon: Users,           label: 'Farmer Register',   path: '/farmer-register',     accent: 'text-cyan-400' },
         { icon: Calculator,      label: 'Costing & Pricing', path: '/costing-pricing',     accent: 'text-lime-400' },
         { icon: ReceiptText,     label: 'Daily Sales',       path: '/daily-sales',         accent: 'text-blue-400' },
         { icon: Boxes,           label: 'Stock Inward',      path: '/stock-inward-review', accent: 'text-orange-400' },
