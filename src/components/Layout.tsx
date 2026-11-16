@@ -347,7 +347,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           ].filter(Boolean),
         }]
       : []),
-    ...(canSee(['super_admin', 'finance_admin', 'operations_admin', 'sales_admin', 'inventory_admin', 'hr_admin'])
+    ...(canSee(['super_admin', 'finance_admin', 'operations_admin', 'sales_admin', 'inventory_admin', 'hr_admin', 'admin'])
       ? [{
           label: 'Shop ERP', emoji: '🏪',
           items: [

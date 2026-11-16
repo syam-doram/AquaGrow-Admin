@@ -70,7 +70,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Restore from sessionStorage on reload
     try {
       const s = sessionStorage.getItem(SESSION_KEY);
-      return s ? JSON.parse(s) : null;
+      if (!s) return null;
+      const parsed = JSON.parse(s) as AuthUser;
+      // Migrate stale cache: if role is raw 'admin', normalize to 'super_admin'
+      if ((parsed.role as string) === 'admin') {
+        const fixed = { ...parsed, role: 'super_admin' as AdminRole, backendRole: 'admin' };
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(fixed));
+        return fixed;
+      }
+      return parsed;
     } catch { return null; }
   });
   const [loading, setLoading] = useState(false);
@@ -115,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   }, []);
 
-  const isSuperAdmin = user?.role === 'super_admin';
+  const isSuperAdmin = user?.role === 'super_admin' || (user?.backendRole as string) === 'admin';
   const hasRole = (...roles: AdminRole[]) => !!user && roles.includes(user.role);
 
   return (
