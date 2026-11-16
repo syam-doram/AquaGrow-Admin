@@ -6,7 +6,7 @@ import {
   Building2, Truck, Activity, LifeBuoy, Package, Award, Wifi,
   CreditCard, BookOpen, ClipboardList, Key, Database,
   Sun, Moon, Fish, Boxes, UserCheck, ShoppingBag,
-  Calculator, ClipboardCheck, ReceiptText,
+  Calculator, ClipboardCheck, ReceiptText, Sprout,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -357,6 +357,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             { icon: Boxes,           label: 'Stock Inward',       path: '/stock-inward-review', accent: 'text-orange-400' },
             { icon: ClipboardCheck,  label: 'Day Close',          path: '/dayclose-approval',    accent: 'text-teal-400' },
             { icon: Wallet,          label: 'Farmer Ledger',      path: '/farmer-ledger',        accent: 'text-purple-400' },
+            { icon: Sprout,          label: 'Harvest Drafts',     path: '/harvest-drafts',       accent: 'text-lime-400' },
           ],
         }]
       : []),
