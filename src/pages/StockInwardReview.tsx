@@ -235,6 +235,13 @@ const StockInwardReview: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
+  // Auto-refresh when user returns to this tab (e.g. after completing costing in another tab)
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [load]);
+
   const filtered = receipts.filter(r => {
     const name = firstProductName(r).toLowerCase();
     const matchSearch =

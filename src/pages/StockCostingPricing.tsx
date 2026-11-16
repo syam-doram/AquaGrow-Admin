@@ -416,7 +416,7 @@ const SellingPriceModal = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rateRs || parseFloat(rateRs) <= 0) return setError('Valid selling rate is required');
+    if (!rateRs || parseFloat(rateRs) <= 0) return setError('Valid borrowing rate is required');
     setError(null);
     setLoading(true);
     try {
@@ -463,7 +463,7 @@ const SellingPriceModal = ({
             )}
             <div>
               <label className="block text-[10px] text-zinc-500 uppercase font-bold mb-1.5 tracking-wider">
-                Approved Selling Rate (₹ / {product.unit ?? 'unit'}) *
+              Approved Selling Rate (₹ / {product.unit ?? 'unit'}) — Borrowing / Credit price *
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">₹</span>
@@ -472,13 +472,28 @@ const SellingPriceModal = ({
               </div>
             </div>
             <div>
-              <label className="block text-[10px] text-zinc-500 uppercase font-bold mb-1.5 tracking-wider">Max Authorized Discount (%)</label>
+              <label className="block text-[10px] text-zinc-500 uppercase font-bold mb-1.5 tracking-wider">Cash Discount (%) — applied when farmer pays cash</label>
               <div className="relative">
                 <input type="number" step="0.01" min="0" max="100" value={discPct} onChange={e => setDiscPct(e.target.value)}
                   placeholder="0.00" className={`${inputCls} pr-7`} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">%</span>
               </div>
             </div>
+            {/* Live rate preview */}
+            {rateRs && parseFloat(rateRs) > 0 && (
+              <div className="px-3 py-2.5 rounded-xl bg-white/4 border border-white/8 text-xs space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Borrowing Rate (credit)</span>
+                  <span className="text-zinc-200 font-bold">₹{parseFloat(rateRs).toLocaleString('en-IN', { minimumFractionDigits: 2 })} / {product.unit ?? 'unit'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Cash Rate ({discPct || 0}% off)</span>
+                  <span className="text-emerald-400 font-bold">
+                    ₹{(parseFloat(rateRs) * (1 - (parseFloat(discPct) || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })} / {product.unit ?? 'unit'}
+                  </span>
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-3 pt-1">
               <button type="button" onClick={onClose} className="btn-secondary text-xs px-4 py-2">Cancel</button>
               <button type="submit" disabled={loading}
@@ -495,7 +510,7 @@ const SellingPriceModal = ({
 };
 
 // ─── Create Product Modal ─────────────────────────────────────────────────────
-const CATEGORIES = ['Feed', 'Medicine', 'Chemical', 'Equipment', 'Packaging', 'Other'];
+const CATEGORIES = ['Feed', 'Medicine', 'Minerals', 'Chemical', 'Equipment', 'Packaging', 'Other'];
 const UNITS = ['kg', 'g', 'L', 'mL', 'bag', 'box', 'piece', 'bottle', 'sachet'];
 
 interface NewProductForm {
@@ -897,15 +912,21 @@ const StockCostingPricing: React.FC = () => {
                     </div>
                     <div className="hidden md:flex items-center gap-6 text-xs">
                       <div className="text-right">
-                        <p className="text-zinc-600 text-[9px] uppercase tracking-wider">Selling Rate</p>
+                        <p className="text-zinc-600 text-[9px] uppercase tracking-wider">Borrowing Rate</p>
                         <p className={`font-bold mt-0.5 ${p.approvedSellingRate && p.approvedSellingRate > 0 ? 'text-emerald-400' : 'text-zinc-600'}`}>
                           {p.approvedSellingRate && p.approvedSellingRate > 0 ? fmtRs(p.approvedSellingRate) : 'Not Set'}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-zinc-600 text-[9px] uppercase tracking-wider">Max Discount</p>
+                        <p className="text-zinc-600 text-[9px] uppercase tracking-wider">Cash Discount %</p>
                         <p className="text-zinc-300 font-bold mt-0.5">{p.sellingDiscountPercent != null ? `${p.sellingDiscountPercent}%` : '—'}</p>
                       </div>
+                      {p.approvedSellingRate && p.approvedSellingRate > 0 && p.sellingDiscountPercent != null && p.sellingDiscountPercent > 0 && (
+                        <div className="text-right">
+                          <p className="text-zinc-600 text-[9px] uppercase tracking-wider">Cash Rate</p>
+                          <p className="text-lime-400 font-bold mt-0.5">{fmtRs(p.approvedSellingRate * (1 - p.sellingDiscountPercent / 100))}</p>
+                        </div>
+                      )}
                     </div>
                     <button
                       onClick={() => setPriceTarget(p)}
