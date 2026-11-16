@@ -267,9 +267,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const role = user?.role ?? 'super_admin';
 
   // ─── Role-based page access ───────────────────────────────────────────────
-  /** Returns true if the logged-in role is allowed to see this page */
+  /** Returns true if the logged-in role is allowed to see this page.
+   *  isSuperAdmin covers both role==='super_admin' AND backendRole==='admin' (legacy). */
   const canSee = (allowedRoles: string[]): boolean =>
-    isSuperAdmin || allowedRoles.includes(role);
+    !!user && (isSuperAdmin || allowedRoles.includes(role));
 
   const menuSections: NavSection[] = [
     {
@@ -347,20 +348,19 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           ].filter(Boolean),
         }]
       : []),
-    ...(canSee(['super_admin', 'finance_admin', 'operations_admin', 'sales_admin', 'inventory_admin', 'hr_admin', 'admin'])
-      ? [{
-          label: 'Shop ERP', emoji: '🏪',
-          items: [
-            { icon: UserCheck,       label: 'Shop Staff',         path: '/shop-staff',          accent: 'text-emerald-400' },
-            { icon: Calculator,      label: 'Costing & Pricing',  path: '/costing-pricing',     accent: 'text-lime-400' },
-            { icon: ReceiptText,     label: 'Daily Sales',        path: '/daily-sales',          accent: 'text-blue-400' },
-            { icon: Boxes,           label: 'Stock Inward',       path: '/stock-inward-review', accent: 'text-orange-400' },
-            { icon: ClipboardCheck,  label: 'Day Close',          path: '/dayclose-approval',    accent: 'text-teal-400' },
-            { icon: Wallet,          label: 'Farmer Ledger',      path: '/farmer-ledger',        accent: 'text-purple-400' },
-            { icon: Sprout,          label: 'Harvest Drafts',     path: '/harvest-drafts',       accent: 'text-lime-400' },
-          ],
-        }]
-      : []),
+    // Shop ERP — visible to all logged-in admins (any role)
+    ...( !!user ? [{
+      label: 'Shop ERP', emoji: '🏪',
+      items: [
+        { icon: UserCheck,       label: 'Shop Staff',        path: '/shop-staff',          accent: 'text-emerald-400' },
+        { icon: Calculator,      label: 'Costing & Pricing', path: '/costing-pricing',     accent: 'text-lime-400' },
+        { icon: ReceiptText,     label: 'Daily Sales',       path: '/daily-sales',         accent: 'text-blue-400' },
+        { icon: Boxes,           label: 'Stock Inward',      path: '/stock-inward-review', accent: 'text-orange-400' },
+        { icon: ClipboardCheck,  label: 'Day Close',         path: '/dayclose-approval',   accent: 'text-teal-400' },
+        { icon: Wallet,          label: 'Farmer Ledger',     path: '/farmer-ledger',       accent: 'text-purple-400' },
+        { icon: Sprout,          label: 'Harvest Drafts',    path: '/harvest-drafts',      accent: 'text-lime-400' },
+      ],
+    }] : []),
     {
       label: 'System', emoji: '🔧',
       items: [
