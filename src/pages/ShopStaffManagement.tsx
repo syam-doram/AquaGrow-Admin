@@ -68,32 +68,32 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return json as T;
 }
 
-const fetchStaff        = ()                       => apiFetch<StaffMember[]>('/staff');
-const createStaff       = (d: CreateStaffForm)     => apiFetch<StaffMember>('/staff', { method: 'POST', body: JSON.stringify(d) });
-const updateStaff       = (id: string, d: UpdateStaffForm) => apiFetch<StaffMember>(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(d) });
-const toggleActive      = (id: string, active: boolean) => apiFetch<StaffMember>(`/staff/${id}`, { method: 'PUT', body: JSON.stringify({ active }) });
-const resetPassword     = (id: string, newPassword: string) => apiFetch(`/staff/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) });
+const fetchStaff = () => apiFetch<StaffMember[]>('/staff');
+const createStaff = (d: CreateStaffForm) => apiFetch<StaffMember>('/staff', { method: 'POST', body: JSON.stringify(d) });
+const updateStaff = (id: string, d: UpdateStaffForm) => apiFetch<StaffMember>(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(d) });
+const toggleActive = (id: string, active: boolean) => apiFetch<StaffMember>(`/staff/${id}`, { method: 'PUT', body: JSON.stringify({ active }) });
+const resetPassword = (id: string, newPassword: string) => apiFetch(`/staff/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) });
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE_LABELS: Record<StaffRole, string> = {
-  stock_staff:   'Stock Staff',
+  stock_staff: 'Stock Staff',
   billing_staff: 'Billing Staff',
-  shop_manager:  'Shop Manager',
-  owner:         'Owner',
+  shop_manager: 'Shop Manager',
+  owner: 'Owner',
 };
 
 const ROLE_COLORS: Record<StaffRole, string> = {
-  stock_staff:   'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  stock_staff: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
   billing_staff: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  shop_manager:  'bg-purple-500/15 text-purple-400 border-purple-500/30',
-  owner:         'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+  shop_manager: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+  owner: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
 };
 
 const ROLE_PERMISSIONS: Record<StaffRole, string[]> = {
-  stock_staff:   ['Stock inward entry', 'Product stock lookup', 'Physical stock counting'],
+  stock_staff: ['Stock inward entry', 'Product stock lookup', 'Physical stock counting'],
   billing_staff: ['Approved selling-price lookup', 'Farmer billing', 'Payment receipts', 'Farmer statements'],
-  shop_manager:  ['All Stock Staff permissions', 'All Billing Staff permissions', 'Daily sales review', 'Day-close submission', 'Harvest draft entry'],
-  owner:         ['Staff management', 'Purchase costing', 'Selling price & discounts', 'Profit/margin reports', 'Stock adjustments', 'Day-close approval', 'Culture settlements'],
+  shop_manager: ['All Stock Staff permissions', 'All Billing Staff permissions', 'Daily sales review', 'Day-close submission', 'Harvest draft entry'],
+  owner: ['Staff management', 'Purchase costing', 'Selling price & discounts', 'Profit/margin reports', 'Stock adjustments', 'Day-close approval', 'Culture settlements'],
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -127,22 +127,22 @@ const StaffModal = ({
   const isEdit = mode === 'edit';
 
   const [form, setForm] = useState<CreateStaffForm>({
-    name:     staff?.name     ?? '',
-    email:    staff?.email    ?? '',
+    name: staff?.name ?? '',
+    email: staff?.email ?? '',
     password: '',
-    role:     (staff?.role as StaffRole) ?? 'stock_staff',
+    role: (staff?.role as StaffRole) ?? 'stock_staff',
     tenantId: staff?.tenantId ?? '',
   });
   const [showPass, setShowPass] = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const set = (k: keyof CreateStaffForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim())  return setError('Name is required');
+    if (!form.name.trim()) return setError('Name is required');
     if (!form.email.trim()) return setError('Email is required');
     if (!isEdit && !form.password) return setError('Password is required for new staff');
     if (!isEdit && form.password.length < 8) return setError('Password must be at least 8 characters');
@@ -151,11 +151,11 @@ const StaffModal = ({
     try {
       if (isEdit && staff) {
         await updateStaff(staff._id, {
-          name:     form.name,
-          email:    form.email,
-          role:     form.role,
+          name: form.name,
+          email: form.email,
+          role: form.role,
           tenantId: form.tenantId,
-          active:   staff.active,
+          active: staff.active,
         });
       } else {
         await createStaff(form);
@@ -283,7 +283,7 @@ const StaffModal = ({
                   ))}
                 </ul>
               </div>
-            )}
+            )}dpl_Ars45TFz9DUUbR2TJCGR8jrBZyTs
 
             {/* Footer */}
             <div className="flex justify-end gap-3 pt-2">
@@ -302,11 +302,11 @@ const StaffModal = ({
 
 // ─── Reset Password Modal ─────────────────────────────────────────────────────
 const ResetPasswordModal = ({ staff, onClose, onDone }: { staff: StaffMember; onClose: () => void; onDone: () => void }) => {
-  const [newPw, setNewPw]   = useState('');
+  const [newPw, setNewPw] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState<string | null>(null);
-  const [done, setDone]     = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -388,15 +388,15 @@ const ResetPasswordModal = ({ staff, onClose, onDone }: { staff: StaffMember; on
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const ShopStaffManagement: React.FC = () => {
-  const [staff, setStaff]       = useState<StaffMember[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
-  const [search, setSearch]     = useState('');
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<StaffRole | 'all'>('all');
-  const [showModal, setShowModal]   = useState(false);
-  const [editStaff, setEditStaff]   = useState<StaffMember | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editStaff, setEditStaff] = useState<StaffMember | null>(null);
   const [resetTarget, setResetTarget] = useState<StaffMember | null>(null);
-  const [togglingId, setTogglingId]   = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
@@ -440,8 +440,8 @@ const ShopStaffManagement: React.FC = () => {
   });
 
   const stats = {
-    total:   staff.length,
-    active:  staff.filter(s =>  s.active).length,
+    total: staff.length,
+    active: staff.filter(s => s.active).length,
     inactive: staff.filter(s => !s.active).length,
   };
 
@@ -452,11 +452,10 @@ const ShopStaffManagement: React.FC = () => {
         {toast && (
           <motion.div
             initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            className={`fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold shadow-xl ${
-              toast.type === 'success'
+            className={`fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold shadow-xl ${toast.type === 'success'
                 ? 'bg-emerald-500/90 text-white'
                 : 'bg-red-500/90 text-white'
-            }`}
+              }`}
           >
             {toast.type === 'success' ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
             {toast.msg}
@@ -491,9 +490,9 @@ const ShopStaffManagement: React.FC = () => {
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Total Staff',   value: stats.total,    color: 'text-zinc-100',    icon: <Users size={16} /> },
-          { label: 'Active',        value: stats.active,   color: 'text-emerald-400', icon: <CheckCircle2 size={16} /> },
-          { label: 'Inactive',      value: stats.inactive, color: 'text-red-400',     icon: <Power size={16} /> },
+          { label: 'Total Staff', value: stats.total, color: 'text-zinc-100', icon: <Users size={16} /> },
+          { label: 'Active', value: stats.active, color: 'text-emerald-400', icon: <CheckCircle2 size={16} /> },
+          { label: 'Inactive', value: stats.inactive, color: 'text-red-400', icon: <Power size={16} /> },
         ].map(({ label, value, color, icon }) => (
           <div key={label} className="glass-panel p-5">
             <div className="flex items-center justify-between mb-2">
@@ -616,9 +615,8 @@ const ShopStaffManagement: React.FC = () => {
 
                 {/* Status */}
                 <div className="shrink-0">
-                  <span className={`text-[9px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
-                    member.active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-500/10 text-zinc-500'
-                  }`}>
+                  <span className={`text-[9px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 ${member.active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-500/10 text-zinc-500'
+                    }`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${member.active ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
                     {member.active ? 'Active' : 'Inactive'}
                   </span>
@@ -649,11 +647,10 @@ const ShopStaffManagement: React.FC = () => {
                     title={member.active ? 'Deactivate Account' : 'Activate Account'}
                     onClick={() => handleToggleActive(member)}
                     disabled={togglingId === member._id}
-                    className={`p-2 rounded-xl transition-colors disabled:opacity-50 ${
-                      member.active
+                    className={`p-2 rounded-xl transition-colors disabled:opacity-50 ${member.active
                         ? 'hover:bg-red-500/10 text-zinc-500 hover:text-red-400'
                         : 'hover:bg-emerald-500/10 text-zinc-500 hover:text-emerald-400'
-                    }`}
+                      }`}
                   >
                     {togglingId === member._id ? <Spinner /> : <Power size={15} />}
                   </button>
