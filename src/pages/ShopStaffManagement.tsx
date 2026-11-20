@@ -28,6 +28,7 @@ interface StaffMember {
   _id: string;
   name: string;
   email: string;       // backend field (login credential)
+  phoneNumber?: string; // mobile contact number
   role: StaffRole;
   tenantId?: string;   // backend field for shop/branch
   active: boolean;     // backend field
@@ -39,6 +40,7 @@ interface StaffMember {
 interface CreateStaffForm {
   name: string;
   email: string;       // used as login
+  phoneNumber: string; // mobile number
   password: string;
   role: StaffRole;
   tenantId: string;    // shop/branch identifier (optional)
@@ -47,6 +49,7 @@ interface CreateStaffForm {
 interface UpdateStaffForm {
   name: string;
   email: string;
+  phoneNumber: string;
   role: StaffRole;
   tenantId: string;
   active: boolean;
@@ -129,6 +132,7 @@ const StaffModal = ({
   const [form, setForm] = useState<CreateStaffForm>({
     name: staff?.name ?? '',
     email: staff?.email ?? '',
+    phoneNumber: (staff as any)?.phoneNumber ?? '',
     password: '',
     role: (staff?.role as StaffRole) ?? 'stock_staff',
     tenantId: staff?.tenantId ?? '',
@@ -146,6 +150,8 @@ const StaffModal = ({
     if (!form.email.trim()) return setError('Email is required');
     if (!isEdit && !form.password) return setError('Password is required for new staff');
     if (!isEdit && form.password.length < 8) return setError('Password must be at least 8 characters');
+    if (form.phoneNumber && !/^\d{10}$/.test(form.phoneNumber.trim()))
+      return setError('Mobile number must be exactly 10 digits');
     setError(null);
     setLoading(true);
     try {
@@ -153,6 +159,7 @@ const StaffModal = ({
         await updateStaff(staff._id, {
           name: form.name,
           email: form.email,
+          phoneNumber: form.phoneNumber.trim(),
           role: form.role,
           tenantId: form.tenantId,
           active: staff.active,
@@ -212,6 +219,18 @@ const StaffModal = ({
               <div className="md:col-span-2">
                 <label className={labelCls}>Full Name *</label>
                 <input type="text" value={form.name} onChange={set('name')} placeholder="e.g. Ravi Kumar" className={inputCls} required />
+              </div>
+
+              {/* Mobile Number */}
+              <div className="md:col-span-2">
+                <label className={labelCls}>Mobile Number</label>
+                <input
+                  type="tel" value={form.phoneNumber} onChange={set('phoneNumber')}
+                  placeholder="10-digit mobile number"
+                  maxLength={10}
+                  className={inputCls}
+                />
+                <p className="text-[10px] text-zinc-600 mt-1">Used for contact. Not used for login.</p>
               </div>
 
               {/* Email — login credential */}
@@ -283,7 +302,7 @@ const StaffModal = ({
                   ))}
                 </ul>
               </div>
-            )}dpl_Ars45TFz9DUUbR2TJCGR8jrBZyTs
+            )}
 
             {/* Footer */}
             <div className="flex justify-end gap-3 pt-2">
@@ -434,7 +453,8 @@ const ShopStaffManagement: React.FC = () => {
 
   const filtered = staff.filter(s => {
     const matchSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.email.toLowerCase().includes(search.toLowerCase());
+      s.email.toLowerCase().includes(search.toLowerCase()) ||
+      (s.phoneNumber ?? '').includes(search);
     const matchRole = roleFilter === 'all' || s.role === roleFilter;
     return matchSearch && matchRole;
   });
@@ -596,6 +616,9 @@ const ShopStaffManagement: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-3 mt-0.5">
                     <p className="text-[10px] text-zinc-500 font-mono">{member.email}</p>
+                    {member.phoneNumber && (
+                      <p className="text-[10px] text-zinc-400">📱 {member.phoneNumber}</p>
+                    )}
                     {member.tenantId && (
                       <p className="text-[10px] text-zinc-600 flex items-center gap-1">
                         <Store size={9} /> {member.tenantId}
