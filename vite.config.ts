@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       // Expose the API base URL to the frontend bundle
       'import.meta.env.VITE_API_BASE_URL': JSON.stringify(
-        env.VITE_API_BASE_URL || 'https://aquagrow-core-api-staging.onrender.com/api'
+        env.VITE_API_BASE_URL || 'https://aquagrow.onrender.com/api'
       ),
     },
     resolve: {

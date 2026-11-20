@@ -17,7 +17,7 @@ const Login = () => {
 
   // Check API connectivity — any response means server is reachable
   React.useEffect(() => {
-    fetch('https://aquagrow-core-api-staging.onrender.com/api/health')
+    fetch('https://aquagrow.onrender.com/api/health')
       .then(() => setApiOnline(true))   // server responded (any status) = online
       .catch(() => setApiOnline(false)); // network error only = offline
   }, []);
@@ -99,8 +99,8 @@ const Login = () => {
 
           {/* API status */}
           <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold w-fit ${apiOnline === true ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-              apiOnline === false ? 'bg-red-500/10 border-red-500/20 text-red-400' :
-                'bg-zinc-500/10 border-zinc-500/20 text-zinc-500'
+            apiOnline === false ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+              'bg-zinc-500/10 border-zinc-500/20 text-zinc-500'
             }`}>
             {apiOnline === true ? <Wifi size={12} /> :
               apiOnline === false ? <WifiOff size={12} /> :
