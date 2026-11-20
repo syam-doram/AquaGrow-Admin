@@ -8,16 +8,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
-  const [phone, setPhone]           = useState('');
-  const [password, setPassword]     = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [apiOnline, setApiOnline]   = useState<boolean | null>(null);
-  const navigate                    = useNavigate();
-  const { login, loading, error }   = useAuth();
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
+  const navigate = useNavigate();
+  const { login, loading, error } = useAuth();
 
   // Check API connectivity — any response means server is reachable
   React.useEffect(() => {
-    fetch('https://aquagrow.onrender.com/api/health')
+    fetch('https://aquagrow-core-api-staging.onrender.com/api/health')
       .then(() => setApiOnline(true))   // server responded (any status) = online
       .catch(() => setApiOnline(false)); // network error only = offline
   }, []);
@@ -68,8 +68,8 @@ const Login = () => {
         <div className="relative z-10 grid grid-cols-3 gap-8">
           {[
             { icon: ShieldCheck, label: 'Role-Based Access', sub: 'Strict RBAC per admin' },
-            { icon: Globe,       label: 'Live Backend',       sub: 'MongoDB on Render' },
-            { icon: Zap,         label: 'Real-Time Sync',     sub: 'App ↔ Admin panel' },
+            { icon: Globe, label: 'Live Backend', sub: 'MongoDB on Render' },
+            { icon: Zap, label: 'Real-Time Sync', sub: 'App ↔ Admin panel' },
           ].map(({ icon: Icon, label, sub }) => (
             <div key={label} className="space-y-2">
               <div className="p-2 w-fit rounded-lg bg-white/5 border border-white/10 text-emerald-400">
@@ -98,17 +98,16 @@ const Login = () => {
           </div>
 
           {/* API status */}
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold w-fit ${
-            apiOnline === true  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-            apiOnline === false ? 'bg-red-500/10 border-red-500/20 text-red-400' :
-                                  'bg-zinc-500/10 border-zinc-500/20 text-zinc-500'
-          }`}>
-            {apiOnline === true  ? <Wifi size={12} />             :
-             apiOnline === false ? <WifiOff size={12} />          :
-                                   <RefreshCw size={12} className="animate-spin" />}
-            {apiOnline === true  ? 'AquaGrow API Online ✓'     :
-             apiOnline === false ? 'API Offline — check server' :
-                                   'Checking connection...'}
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold w-fit ${apiOnline === true ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+              apiOnline === false ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                'bg-zinc-500/10 border-zinc-500/20 text-zinc-500'
+            }`}>
+            {apiOnline === true ? <Wifi size={12} /> :
+              apiOnline === false ? <WifiOff size={12} /> :
+                <RefreshCw size={12} className="animate-spin" />}
+            {apiOnline === true ? 'AquaGrow API Online ✓' :
+              apiOnline === false ? 'API Offline — check server' :
+                'Checking connection...'}
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
@@ -175,8 +174,8 @@ const Login = () => {
               <ShieldCheck size={13} /> Admin Account Required
             </p>
             <p className="text-zinc-500 text-xs leading-relaxed">
-              Only users with <code className="text-emerald-400 bg-emerald-500/10 px-1 rounded">role: admin</code> 
-              {' '}in the AquaGrow database can access this console. 
+              Only users with <code className="text-emerald-400 bg-emerald-500/10 px-1 rounded">role: admin</code>
+              {' '}in the AquaGrow database can access this console.
               Ask your Super Admin to create your account via the mobile backend.
             </p>
           </div>

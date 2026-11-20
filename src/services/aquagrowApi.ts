@@ -11,22 +11,22 @@
 // In dev: VITE_API_BASE_URL=http://localhost:3005/api (set in .env)
 // In production: falls back to the Render-hosted Express backend below.
 export const BASE_URL: string =
-  (import.meta as any).env?.VITE_API_BASE_URL ?? 'https://aquagrow.onrender.com/api';
+  (import.meta as any).env?.VITE_API_BASE_URL ?? 'https://aquagrow-core-api-staging.onrender.com/api';
 
 // ═══════════════════════════════════════════════════════════════
 //  TOKEN MANAGEMENT
 // ═══════════════════════════════════════════════════════════════
-const TOKEN_KEY    = 'aquagrow_admin_token';
+const TOKEN_KEY = 'aquagrow_admin_token';
 const USERDATA_KEY = 'aquagrow_admin_user';
 
-export const getAdminToken  = (): string | null  => sessionStorage.getItem(TOKEN_KEY);
-export const setAdminToken  = (t: string)        => sessionStorage.setItem(TOKEN_KEY, t);
-export const clearAdminToken= ()                  => { sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(USERDATA_KEY); };
+export const getAdminToken = (): string | null => sessionStorage.getItem(TOKEN_KEY);
+export const setAdminToken = (t: string) => sessionStorage.setItem(TOKEN_KEY, t);
+export const clearAdminToken = () => { sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(USERDATA_KEY); };
 
-export const getCachedUser  = (): any | null => {
+export const getCachedUser = (): any | null => {
   try { return JSON.parse(sessionStorage.getItem(USERDATA_KEY) || 'null'); } catch { return null; }
 };
-export const setCachedUser  = (u: any)       => sessionStorage.setItem(USERDATA_KEY, JSON.stringify(u));
+export const setCachedUser = (u: any) => sessionStorage.setItem(USERDATA_KEY, JSON.stringify(u));
 
 // ═══════════════════════════════════════════════════════════════
 //  CORE FETCH WRAPPER
@@ -62,8 +62,8 @@ export interface BackendUser {
   email?: string;
   // `role` now carries the full admin variant directly from the backend
   role: 'admin' | 'super_admin' | 'finance_admin' | 'operations_admin' | 'sales_admin'
-      | 'support_admin' | 'inventory_admin' | 'technical_admin' | 'hr_admin'
-      | 'farmer' | 'provider';
+  | 'support_admin' | 'inventory_admin' | 'technical_admin' | 'hr_admin'
+  | 'farmer' | 'provider';
   adminRole?: string | null;  // @deprecated — kept for backwards compat reads
   location?: string;
   subscriptionStatus?: string;
@@ -124,13 +124,13 @@ export interface AdminStaffMember {
   createdAt?: string;
 }
 
-export const fetchAdminStaff   = ()                                         => apiFetch<AdminStaffMember[]>('/admin/staff');
-export const createAdminStaff  = (data: { name: string; phoneNumber: string; password: string; role: string; email?: string; location?: string }) =>
+export const fetchAdminStaff = () => apiFetch<AdminStaffMember[]>('/admin/staff');
+export const createAdminStaff = (data: { name: string; phoneNumber: string; password: string; role: string; email?: string; location?: string }) =>
   apiFetch<AdminStaffMember>('/admin/staff', { method: 'POST', body: JSON.stringify(data) });
-export const updateAdminStaff  = (id: string, data: Partial<Pick<AdminStaffMember, 'role' | 'isActive' | 'name' | 'email' | 'location'>>) =>
+export const updateAdminStaff = (id: string, data: Partial<Pick<AdminStaffMember, 'role' | 'isActive' | 'name' | 'email' | 'location'>>) =>
   apiFetch<AdminStaffMember>(`/admin/staff/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
-export const deleteAdminStaff  = (id: string)                               => apiFetch(`/admin/staff/${id}`, { method: 'DELETE' });
-export const resetAdminPassword= (id: string, newPassword: string)          =>
+export const deleteAdminStaff = (id: string) => apiFetch(`/admin/staff/${id}`, { method: 'DELETE' });
+export const resetAdminPassword = (id: string, newPassword: string) =>
   apiFetch(`/admin/staff/${id}/password`, { method: 'PATCH', body: JSON.stringify({ newPassword }) });
 
 // ═══════════════════════════════════════════════════════════════
@@ -201,9 +201,9 @@ export interface LiveFarmer {
   } | null;
 }
 
-export const fetchFarmers     = ()                   => apiFetch<LiveFarmer[]>('/admin/farmers');
-export const fetchAllUsers    = ()                   => apiFetch<BackendUser[]>('/admin/users');
-export const updateUserRole   = (id: string, adminRole: string) =>
+export const fetchFarmers = () => apiFetch<LiveFarmer[]>('/admin/farmers');
+export const fetchAllUsers = () => apiFetch<BackendUser[]>('/admin/users');
+export const updateUserRole = (id: string, adminRole: string) =>
   apiFetch(`/admin/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ adminRole }) });
 
 // ═══════════════════════════════════════════════════════════════
@@ -259,12 +259,12 @@ export interface LiveHarvestRequest {
   updatedAt?: string;
 }
 
-export const fetchHarvestRequests    = ()                     => apiFetch<LiveHarvestRequest[]>('/harvest-requests');
-export const updateHarvestRequest    = (id: string, data: Partial<LiveHarvestRequest>) =>
+export const fetchHarvestRequests = () => apiFetch<LiveHarvestRequest[]>('/harvest-requests');
+export const updateHarvestRequest = (id: string, data: Partial<LiveHarvestRequest>) =>
   apiFetch(`/harvest-requests/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-export const approveHarvestRequest   = (id: string, price: number, finalWeight: number) =>
+export const approveHarvestRequest = (id: string, price: number, finalWeight: number) =>
   apiFetch(`/harvest-requests/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'accepted', price, finalWeight }) });
-export const completeHarvestRequest  = (id: string, finalTotal: number) =>
+export const completeHarvestRequest = (id: string, finalTotal: number) =>
   apiFetch(`/harvest-requests/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'completed', finalTotal }) });
 
 // ═══════════════════════════════════════════════════════════════
@@ -297,10 +297,10 @@ export interface LiveShopOrder {
 }
 
 /** Fetch all ShopOrders (farmer → AquaShop) from the unified DB */
-export const fetchShopOrders       = ()                             => apiFetch<LiveShopOrder[]>('/admin/shop-orders');
+export const fetchShopOrders = () => apiFetch<LiveShopOrder[]>('/admin/shop-orders');
 /** Fetch ALL orders across both AquaShop + ProviderOrders — unified single-DB view */
-export const fetchAllOrders        = ()                             => apiFetch<LiveShopOrder[]>('/admin/all-orders');
-export const updateShopOrderStatus = (id: string, status: string)  =>
+export const fetchAllOrders = () => apiFetch<LiveShopOrder[]>('/admin/all-orders');
+export const updateShopOrderStatus = (id: string, status: string) =>
   apiFetch(`/shop/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
 
 // ═══════════════════════════════════════════════════════════════
@@ -362,7 +362,7 @@ export interface LiveSubscriptionDetail {
   features: string[];
   farmer?: { name: string; phoneNumber: string; location?: string; subscriptionStatus?: string } | null;
 }
-export const fetchSubscriptions     = () => apiFetch<LiveSubscriptionDetail[]>('/admin/subscriptions');
+export const fetchSubscriptions = () => apiFetch<LiveSubscriptionDetail[]>('/admin/subscriptions');
 
 // ═══════════════════════════════════════════════════════════════
 //  EXPENSES (live from DB)
@@ -464,12 +464,12 @@ export interface ShopStaffMember {
   updatedAt?: string;
 }
 
-export const fetchShopStaff        = ()                                                  => apiFetch<ShopStaffMember[]>('/staff');
-export const createShopStaff       = (data: { name: string; email: string; password: string; role: string; tenantId?: string }) =>
+export const fetchShopStaff = () => apiFetch<ShopStaffMember[]>('/staff');
+export const createShopStaff = (data: { name: string; email: string; password: string; role: string; tenantId?: string }) =>
   apiFetch<ShopStaffMember>('/staff', { method: 'POST', body: JSON.stringify(data) });
-export const updateShopStaff       = (id: string, data: Partial<ShopStaffMember>)       => apiFetch<ShopStaffMember>(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-export const deactivateShopStaff   = (id: string)                                       => apiFetch(`/staff/${id}`, { method: 'DELETE' });
-export const resetShopStaffPassword= (id: string, newPassword: string)                  => apiFetch(`/staff/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) });
+export const updateShopStaff = (id: string, data: Partial<ShopStaffMember>) => apiFetch<ShopStaffMember>(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deactivateShopStaff = (id: string) => apiFetch(`/staff/${id}`, { method: 'DELETE' });
+export const resetShopStaffPassword = (id: string, newPassword: string) => apiFetch(`/staff/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) });
 
 // ═══════════════════════════════════════════════════════════════
 //  SHOP ERP — Products
@@ -489,9 +489,9 @@ export interface ShopProduct {
   isActive: boolean;
 }
 
-export const fetchShopProducts      = ()                                                        => apiFetch<ShopProduct[]>('/products');
-export const createShopProduct      = (data: Omit<ShopProduct, '_id' | 'isActive'>)            => apiFetch<ShopProduct>('/products', { method: 'POST', body: JSON.stringify(data) });
-export const updateShopProduct      = (id: string, data: Partial<ShopProduct>)                 => apiFetch<ShopProduct>(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const fetchShopProducts = () => apiFetch<ShopProduct[]>('/products');
+export const createShopProduct = (data: Omit<ShopProduct, '_id' | 'isActive'>) => apiFetch<ShopProduct>('/products', { method: 'POST', body: JSON.stringify(data) });
+export const updateShopProduct = (id: string, data: Partial<ShopProduct>) => apiFetch<ShopProduct>(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const setProductSellingPrice = (id: string, approvedSellingRate: number, sellingDiscountPercent?: number, mrp?: number) =>
   apiFetch<ShopProduct>(`/products/${id}/selling-price`, { method: 'PUT', body: JSON.stringify({ approvedSellingRate, sellingDiscountPercent, mrp }) });
 
@@ -523,9 +523,9 @@ export interface ShopReceipt {
   createdAt: string;
 }
 
-export const fetchShopReceipts      = ()                                                     => apiFetch<ShopReceipt[]>('/receipts');
-export const fetchPendingCosting    = ()                                                     => apiFetch<ShopReceipt[]>('/receipts/pending-costing');
-export const submitReceiptCosting   = (id: string, data: {
+export const fetchShopReceipts = () => apiFetch<ShopReceipt[]>('/receipts');
+export const fetchPendingCosting = () => apiFetch<ShopReceipt[]>('/receipts/pending-costing');
+export const submitReceiptCosting = (id: string, data: {
   purchaseDiscountPercent?: number;
   purchaseCost?: number;
   taxAmount?: number;
@@ -534,7 +534,7 @@ export const submitReceiptCosting   = (id: string, data: {
   productId?: string;
   approvedSellingRate?: number;
   maxDiscountPercent?: number;
-})                                                                                            => apiFetch<ShopReceipt>(`/receipts/${id}/costing`, { method: 'PUT', body: JSON.stringify(data) });
+}) => apiFetch<ShopReceipt>(`/receipts/${id}/costing`, { method: 'PUT', body: JSON.stringify(data) });
 
 // ═══════════════════════════════════════════════════════════════
 //  SHOP ERP — Invoices (Farmer Billing)
@@ -569,15 +569,15 @@ export interface DailySummary {
   finalizedCount: number;
 }
 
-export const fetchInvoices          = (params?: { date?: string; farmerId?: string; status?: string; from?: string; to?: string }) => {
+export const fetchInvoices = (params?: { date?: string; farmerId?: string; status?: string; from?: string; to?: string }) => {
   const qs = new URLSearchParams(params as any).toString();
   return apiFetch<ShopInvoice[]>(`/invoices${qs ? '?' + qs : ''}`);
 };
-export const fetchInvoiceSummary    = (date: string)                                     => apiFetch<DailySummary>(`/invoices/summary?date=${date}`);
-export const fetchInvoice           = (id: string)                                       => apiFetch<ShopInvoice>(`/invoices/${id}`);
-export const createInvoice          = (data: { farmerId: string; pondId?: string; items: { productId: string; quantity: number; discountPercent?: number; batchId?: string }[]; payment?: { amount: number; method: string }; idempotencyKey?: string }) =>
+export const fetchInvoiceSummary = (date: string) => apiFetch<DailySummary>(`/invoices/summary?date=${date}`);
+export const fetchInvoice = (id: string) => apiFetch<ShopInvoice>(`/invoices/${id}`);
+export const createInvoice = (data: { farmerId: string; pondId?: string; items: { productId: string; quantity: number; discountPercent?: number; batchId?: string }[]; payment?: { amount: number; method: string }; idempotencyKey?: string }) =>
   apiFetch<ShopInvoice>('/invoices', { method: 'POST', body: JSON.stringify(data) });
-export const addInvoicePayment      = (id: string, data: { amount: number; method: string; details?: Record<string, string> }) =>
+export const addInvoicePayment = (id: string, data: { amount: number; method: string; details?: Record<string, string> }) =>
   apiFetch(`/invoices/${id}/payment`, { method: 'POST', body: JSON.stringify(data) });
 
 // ═══════════════════════════════════════════════════════════════
@@ -593,12 +593,12 @@ export interface ShopDayClose {
   createdAt: string;
 }
 
-export const fetchDayCloses         = (params?: { isApproved?: boolean; from?: string; to?: string }) => {
+export const fetchDayCloses = (params?: { isApproved?: boolean; from?: string; to?: string }) => {
   const qs = new URLSearchParams(params as any).toString();
   return apiFetch<ShopDayClose[]>(`/dayclose${qs ? '?' + qs : ''}`);
 };
-export const approveDayClose        = (id: string)                 => apiFetch<ShopDayClose>(`/dayclose/${id}/approve`, { method: 'PUT' });
-export const rejectDayClose         = (id: string)                 => apiFetch(`/dayclose/${id}/reject`, { method: 'PUT' });
+export const approveDayClose = (id: string) => apiFetch<ShopDayClose>(`/dayclose/${id}/approve`, { method: 'PUT' });
+export const rejectDayClose = (id: string) => apiFetch(`/dayclose/${id}/reject`, { method: 'PUT' });
 
 // ═══════════════════════════════════════════════════════════════
 //  SHOP ERP — Farmer Ledger
@@ -626,9 +626,9 @@ export interface FarmerLedgerResponse {
   outstanding: number;
 }
 
-export const fetchFarmerLedger      = (farmerId: string, from?: string, to?: string)    => {
+export const fetchFarmerLedger = (farmerId: string, from?: string, to?: string) => {
   const qs = new URLSearchParams({ farmerId, ...(from ? { from } : {}), ...(to ? { to } : {}) }).toString();
   return apiFetch<FarmerLedgerResponse>(`/ledger?${qs}`);
 };
 
-export const fetchShopFarmers       = (q?: string)                                      => apiFetch<{ _id: string; name: string; phoneNumber: string; location?: string }[]>(`/farmers${q ? '?q=' + encodeURIComponent(q) : ''}`);
+export const fetchShopFarmers = (q?: string) => apiFetch<{ _id: string; name: string; phoneNumber: string; location?: string }[]>(`/farmers${q ? '?q=' + encodeURIComponent(q) : ''}`);

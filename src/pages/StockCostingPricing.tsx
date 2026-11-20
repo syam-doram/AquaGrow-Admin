@@ -102,7 +102,7 @@ const fetchPendingReceipts = () =>
   );
 
 const fetchAllReceipts = () => apiFetch<StockReceipt[]>('/receipts');
-const fetchProducts    = () => apiFetch<Product[]>('/products');
+const fetchProducts = () => apiFetch<Product[]>('/products');
 
 const submitCosting = (id: string, body: object) =>
   apiFetch(`/receipts/${id}/costing`, { method: 'PUT', body: JSON.stringify(body) });
@@ -143,31 +143,31 @@ const CostingModal = ({
 }) => {
   const existing = receipt.purchaseCostDetails;
   const [form, setForm] = useState<CostingForm>({
-    purchaseCost:       String(existing?.purchaseCost ?? ''),
+    purchaseCost: String(existing?.purchaseCost ?? ''),
     purchaseDiscountPct: String(existing?.purchaseDiscountPercent ?? ''),
-    taxAmount:          String(existing?.taxAmount ?? ''),
-    transportCharges:   String(existing?.transportCharges ?? ''),
+    taxAmount: String(existing?.taxAmount ?? ''),
+    transportCharges: String(existing?.transportCharges ?? ''),
     totalEffectiveCost: String(existing?.totalEffectiveCost ?? ''),
     approvedSellingRate: '',
     maxDiscountPct: '',
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const set = (k: keyof CostingForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
 
   // Derived effective cost calculation (live preview)
-  const purchaseRs      = parseFloat(form.purchaseCost || '0');
-  const discPct         = parseFloat(form.purchaseDiscountPct || '0');
-  const taxAmt          = parseFloat(form.taxAmount || '0');
-  const transport       = parseFloat(form.transportCharges || '0');
+  const purchaseRs = parseFloat(form.purchaseCost || '0');
+  const discPct = parseFloat(form.purchaseDiscountPct || '0');
+  const taxAmt = parseFloat(form.taxAmount || '0');
+  const transport = parseFloat(form.transportCharges || '0');
   // items[0].quantity as a proxy for total base qty, fallback to 1
   const totalQty = (receipt.items?.[0] as any)?.quantity ?? 1;
 
   const afterDiscount = purchaseRs * (1 - discPct / 100);
-  const totalCost     = afterDiscount + taxAmt + transport;
-  const perUnitCost   = totalQty > 0 ? totalCost / totalQty : totalCost;
+  const totalCost = afterDiscount + taxAmt + transport;
+  const perUnitCost = totalQty > 0 ? totalCost / totalQty : totalCost;
 
   // Auto-fill totalEffectiveCost when inputs change
   const calcTotal = totalCost > 0 ? totalCost.toFixed(2) : '';
@@ -195,17 +195,17 @@ const CostingModal = ({
     setLoading(true);
     try {
       const body: any = {
-        purchaseCost:            Number(form.purchaseCost || 0),
+        purchaseCost: Number(form.purchaseCost || 0),
         purchaseDiscountPercent: Number(form.purchaseDiscountPct || 0),
-        taxAmount:               Number(form.taxAmount || 0),
-        transportCharges:        Number(form.transportCharges || 0),
-        totalEffectiveCost:      Number(tec),
+        taxAmount: Number(form.taxAmount || 0),
+        transportCharges: Number(form.transportCharges || 0),
+        totalEffectiveCost: Number(tec),
       };
       // Also update product selling rate if owner fills it in
       if (form.approvedSellingRate && Number(form.approvedSellingRate) > 0) {
-        body.productId          = resolvedProductId;
+        body.productId = resolvedProductId;
         body.approvedSellingRate = Number(form.approvedSellingRate);
-        body.maxDiscountPercent  = Number(form.maxDiscountPct || 0);
+        body.maxDiscountPercent = Number(form.maxDiscountPct || 0);
       }
       await submitCosting(receipt._id, body);
       onSaved();
@@ -360,7 +360,7 @@ const CostingModal = ({
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                   {[
-                    { label: 'Invoice Cost',       value: `₹${purchaseRs.toFixed(2)}` },
+                    { label: 'Invoice Cost', value: `₹${purchaseRs.toFixed(2)}` },
                     { label: 'After Company Disc', value: `₹${afterDiscount.toFixed(2)}` },
                     { label: 'After Tax+Transport', value: `₹${totalCost.toFixed(2)}` },
                     { label: 'Effective Cost/Unit', value: `₹${perUnitCost.toFixed(2)}`, highlight: true },
@@ -409,10 +409,10 @@ const SellingPriceModal = ({
   onClose: () => void;
   onSaved: () => void;
 }) => {
-  const [rateRs, setRateRs]   = useState(product.approvedSellingRate != null ? String(product.approvedSellingRate) : '');
+  const [rateRs, setRateRs] = useState(product.approvedSellingRate != null ? String(product.approvedSellingRate) : '');
   const [discPct, setDiscPct] = useState(String(product.sellingDiscountPercent ?? ''));
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -421,7 +421,7 @@ const SellingPriceModal = ({
     setLoading(true);
     try {
       await updateSellingPrice(product._id, {
-        approvedSellingRate:    Number(rateRs),
+        approvedSellingRate: Number(rateRs),
         sellingDiscountPercent: Number(discPct || '0'),
       });
       onSaved();
@@ -463,7 +463,7 @@ const SellingPriceModal = ({
             )}
             <div>
               <label className="block text-[10px] text-zinc-500 uppercase font-bold mb-1.5 tracking-wider">
-              Approved Selling Rate (₹ / {product.unit ?? 'unit'}) — Borrowing / Credit price *
+                Approved Selling Rate (₹ / {product.unit ?? 'unit'}) — Borrowing / Credit price *
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">₹</span>
@@ -526,7 +526,7 @@ const CreateProductModal = ({ onClose, onSaved }: { onClose: () => void; onSaved
     batchTracking: false, expiryTracking: false,
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const set = (k: keyof NewProductForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
@@ -536,8 +536,8 @@ const CreateProductModal = ({ onClose, onSaved }: { onClose: () => void; onSaved
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.company.trim()) return setError('Company is required');
-    if (!form.name.trim())    return setError('Product name is required');
-    if (!form.code.trim())    return setError('Product code is required');
+    if (!form.name.trim()) return setError('Product name is required');
+    if (!form.code.trim()) return setError('Product code is required');
     setError(null);
     setLoading(true);
     try {
@@ -672,14 +672,14 @@ const CreateProductModal = ({ onClose, onSaved }: { onClose: () => void; onSaved
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const StockCostingPricing: React.FC = () => {
-  const [tab, setTab]           = useState<'pending' | 'products'>('pending');
+  const [tab, setTab] = useState<'pending' | 'products'>('pending');
   const [receipts, setReceipts] = useState<StockReceipt[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
-  const [search, setSearch]     = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const [costingTarget, setCostingTarget] = useState<StockReceipt | null>(null);
-  const [priceTarget, setPriceTarget]     = useState<Product | null>(null);
+  const [priceTarget, setPriceTarget] = useState<Product | null>(null);
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
@@ -728,9 +728,8 @@ const StockCostingPricing: React.FC = () => {
         {toast && (
           <motion.div
             initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            className={`fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold shadow-xl ${
-              toast.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'
-            }`}
+            className={`fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold shadow-xl ${toast.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'
+              }`}
           >
             {toast.type === 'success' ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
             {toast.msg}
@@ -760,7 +759,7 @@ const StockCostingPricing: React.FC = () => {
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: 'Pending Costing', value: receipts.length, color: 'text-amber-400', icon: <Clock size={16} /> },
-          { label: 'Products',        value: products.length,  color: 'text-blue-400',  icon: <Package size={16} /> },
+          { label: 'Products', value: products.length, color: 'text-blue-400', icon: <Package size={16} /> },
           { label: 'Priced Products', value: products.filter(p => p.approvedSellingRate && p.approvedSellingRate > 0).length, color: 'text-emerald-400', icon: <CheckCircle2 size={16} /> },
         ].map(({ label, value, color, icon }) => (
           <div key={label} className="glass-panel p-5">
@@ -783,17 +782,15 @@ const StockCostingPricing: React.FC = () => {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                tab === t.id
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${tab === t.id
                   ? 'bg-emerald-500 text-white shadow-md'
                   : 'text-zinc-400 hover:text-zinc-200'
-              }`}
+                }`}
             >
               {t.icon} {t.label}
               {t.count != null && t.count > 0 && (
-                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
-                  tab === t.id ? 'bg-white/20 text-white' : 'bg-amber-500 text-zinc-900'
-                }`}>
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${tab === t.id ? 'bg-white/20 text-white' : 'bg-amber-500 text-zinc-900'
+                  }`}>
                   {t.count}
                 </span>
               )}
