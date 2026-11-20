@@ -40,6 +40,7 @@ import DayCloseApproval from './pages/DayCloseApproval';
 import FarmerLedger from './pages/FarmerLedger';
 import HarvestDraftReview from './pages/HarvestDraftReview';
 import FarmerManagement from './pages/FarmerManagement';
+import WholesaleOrders from './pages/WholesaleOrders';
 
 // ─── Route Guards ─────────────────────────────────────────────────────────────
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -117,6 +118,8 @@ const App = () => {
           element={<RoleRoute roles={ERP_ROLES}><Layout><HarvestDraftReview /></Layout></RoleRoute>} />
         <Route path="/farmer-register"
           element={<RoleRoute roles={ERP_ROLES}><Layout><FarmerManagement /></Layout></RoleRoute>} />
+        <Route path="/wholesale-orders"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><WholesaleOrders /></Layout></RoleRoute>} />
 
         {/* ── Farmers: operations + hr ─────────────────────────── */}
         <Route path="/harvests"

@@ -360,6 +360,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         { icon: ClipboardCheck,  label: 'Day Close',         path: '/dayclose-approval',   accent: 'text-teal-400' },
         { icon: Wallet,          label: 'Farmer Ledger',     path: '/farmer-ledger',       accent: 'text-purple-400' },
         { icon: Sprout,          label: 'Harvest Drafts',    path: '/harvest-drafts',      accent: 'text-lime-400' },
+        { icon: ShoppingBag,     label: 'Wholesale Orders',  path: '/wholesale-orders',    accent: 'text-blue-400' },
       ],
     }] : []),
     {
