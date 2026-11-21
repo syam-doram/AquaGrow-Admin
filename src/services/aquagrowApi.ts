@@ -11,7 +11,7 @@
 // In dev: VITE_API_BASE_URL=http://localhost:3005/api (set in .env)
 // In production: falls back to the Render-hosted Express backend below.
 export const BASE_URL: string =
-  (import.meta as any).env?.VITE_API_BASE_URL ?? 'https://aquagrow.onrender.com/api';
+  (import.meta as any).env?.VITE_API_BASE_URL ?? 'https://aquagrow-core-api-staging.onrender.com/api';
 
 // ═══════════════════════════════════════════════════════════════
 //  TOKEN MANAGEMENT

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
+import { BASE_URL } from '../services/aquagrowApi';
 
 const Login = () => {
   const [phone, setPhone] = useState('');
@@ -17,7 +18,7 @@ const Login = () => {
 
   // Check API connectivity — any response means server is reachable
   React.useEffect(() => {
-    fetch('https://aquagrow.onrender.com/api/health')
+    fetch(`${BASE_URL.replace('/api', '')}/api/health`)
       .then(() => setApiOnline(true))   // server responded (any status) = online
       .catch(() => setApiOnline(false)); // network error only = offline
   }, []);
@@ -194,7 +195,7 @@ const Login = () => {
           <div className="text-center">
             <p className="text-zinc-600 text-xs">
               AquaGrow Admin Panel · Connected to{' '}
-              <span className="text-emerald-600 font-mono">aquagrow.onrender.com</span>
+              <span className="text-emerald-600 font-mono">{BASE_URL.replace('https://', '').replace('/api', '')}</span>
             </p>
           </div>
         </div>
