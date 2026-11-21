@@ -1030,7 +1030,7 @@ const GSTReport: React.FC = () => {
             <SummaryCard label="Taxable Amount" value={fmtRs(summary.taxableAmount)} color="text-blue-400" icon={<Receipt size={15} />} />
             <SummaryCard label="Total GST Collected" value={fmtRs(summary.totalGst)} color="text-emerald-400" icon={<TrendingUp size={15} />} />
           </div>
-          {summary.byRate.length > 0 && (
+          {(summary.byRate?.length ?? 0) > 0 && (
             <div className="glass-panel p-4">
               <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-3">GST Breakup by Rate</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

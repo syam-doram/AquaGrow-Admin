@@ -433,7 +433,7 @@ const Dashboard = () => {
                   <div className="text-xs text-zinc-300 leading-relaxed">
                     <ReactMarkdown>{marketInsight.text}</ReactMarkdown>
                   </div>
-                  {marketInsight.sources.length > 0 && (
+                  {(marketInsight.sources?.length ?? 0) > 0 && (
                     <div className="pt-2 border-t border-white/5">
                       <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Sources</p>
                       <div className="flex flex-wrap gap-2">
