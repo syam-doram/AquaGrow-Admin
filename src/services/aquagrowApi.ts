@@ -631,4 +631,31 @@ export const fetchFarmerLedger = (farmerId: string, from?: string, to?: string) 
   return apiFetch<FarmerLedgerResponse>(`/ledger?${qs}`);
 };
 
-export const fetchShopFarmers = (q?: string) => apiFetch<{ _id: string; name: string; phoneNumber: string; location?: string }[]>(`/farmers${q ? '?q=' + encodeURIComponent(q) : ''}`);
+// ═══════════════════════════════════════════════════════════════════════
+//  SHOP ERP — Shop Farmers (separate from AquaGrow mobile users)
+// ═══════════════════════════════════════════════════════════════════════
+export interface ShopFarmerRecord {
+  _id: string;
+  name: string;
+  phoneNumber: string;
+  email?: string;
+  address?: string;
+  village?: string;
+  district?: string;
+  notes?: string;
+  totalCredit?: number;
+  isActive?: boolean;
+  createdAt?: string;
+}
+
+export const fetchShopFarmers = (q?: string) =>
+  apiFetch<ShopFarmerRecord[]>(`/shop/farmers${q ? '?q=' + encodeURIComponent(q) : ''}`);
+
+export const createShopFarmer = (data: Partial<ShopFarmerRecord>) =>
+  apiFetch<ShopFarmerRecord>('/shop/farmers', { method: 'POST', body: JSON.stringify(data) });
+
+export const updateShopFarmer = (id: string, data: Partial<ShopFarmerRecord>) =>
+  apiFetch<ShopFarmerRecord>(`/shop/farmers/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const deleteShopFarmer = (id: string) =>
+  apiFetch<{ success: boolean }>(`/shop/farmers/${id}`, { method: 'DELETE' });
