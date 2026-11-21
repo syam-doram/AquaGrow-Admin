@@ -8,11 +8,7 @@ import {
 import { motion } from 'motion/react';
 import { LogisticsEntry } from '../types';
 
-const mockLogistics: LogisticsEntry[] = [
-  { id: 'LOG-001', orderId: 'ORD-101', truckId: 'AP-05-TX-1234', driverName: 'Ramesh Kumar',   status: 'IN_TRANSIT',        currentLocation: 'Nellore Highway',       temperature: -18, estimatedArrival: '2026-04-10 18:30' },
-  { id: 'LOG-002', orderId: 'ORD-102', truckId: 'AP-05-TX-5678', driverName: 'Suresh Singh',   status: 'PICKUP_SCHEDULED',  currentLocation: 'Coastal Valley Depot',   estimatedArrival: '2026-04-11 09:00' },
-  { id: 'LOG-003', orderId: 'ORD-098', truckId: 'AP-05-TX-9012', driverName: 'Anil Babu',      status: 'DELIVERED',         currentLocation: 'ABC SeaFoods Facility',  temperature: -20, estimatedArrival: '2026-04-10 14:00' },
-];
+// No backend endpoint yet — logistics data will appear when connected
 
 const STATUS_STYLES: Record<string, string> = {
   DELIVERED:         'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -22,16 +18,17 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const STATS = [
-  { label: 'Active Trucks', value: '18', icon: Truck, color: 'emerald', sub: '4 idle' },
-  { label: 'In Transit', value: '12', icon: Box, color: 'blue', sub: '8 on time' },
-  { label: 'Cold Storage', value: '85%', icon: Thermometer, color: 'amber', sub: '1 unit alert' },
-  { label: 'Delivered Today', value: '42', icon: PackageCheck, color: 'teal', sub: '94% on-time' },
+  { label: 'Active Trucks', value: '—', icon: Truck, color: 'emerald', sub: 'Not connected' },
+  { label: 'In Transit', value: '—', icon: Box, color: 'blue', sub: 'Not connected' },
+  { label: 'Cold Storage', value: '—', icon: Thermometer, color: 'amber', sub: 'Not connected' },
+  { label: 'Delivered Today', value: '—', icon: PackageCheck, color: 'teal', sub: 'Not connected' },
 ];
 
 const SupplyChain = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [logistics] = useState<LogisticsEntry[]>([]);
 
-  const filtered = mockLogistics.filter(l =>
+  const filtered = logistics.filter(l =>
     l.truckId.toLowerCase().includes(searchTerm.toLowerCase()) ||
     l.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
     l.driverName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -156,6 +153,13 @@ const SupplyChain = () => {
               ))}
             </tbody>
           </table>
+          {filtered.length === 0 && (
+            <div className="py-16 text-center">
+              <Truck size={36} className="mx-auto mb-3 text-[var(--text-muted)]" />
+              <p className="text-[var(--text-muted)] font-semibold mb-1">No logistics data yet.</p>
+              <p className="text-xs text-[var(--text-muted)]">Connect your logistics system to see live truck tracking here.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -167,28 +171,10 @@ const SupplyChain = () => {
           <h3 className="font-display font-bold flex items-center gap-2 mb-5">
             <ShieldCheck size={16} className="text-emerald-400" /> Cold Storage Health
           </h3>
-          <div className="space-y-3">
-            {[
-              { hub: 'Nellore Hub', units: 8, temp: -22, status: 'Optimal', color: 'emerald' },
-              { hub: 'Coastal Depot', units: 4, temp: -12, status: 'Warning', color: 'red' },
-              { hub: 'Zone A Facility', units: 6, temp: -20, status: 'Optimal', color: 'emerald' },
-            ].map(h => (
-              <div key={h.hub} className={`flex items-center justify-between p-4 rounded-xl border ${
-                h.color === 'emerald' ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-red-500/5 border-red-500/15'
-              }`}>
-                <div className="flex items-center gap-3">
-                  <Thermometer size={18} className={h.color === 'emerald' ? 'text-emerald-400' : 'text-red-400'} />
-                  <div>
-                    <p className="font-bold text-sm">{h.hub}</p>
-                    <p className="text-xs text-[var(--text-muted)]">{h.units} Units Active</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className={`font-mono font-bold ${h.color === 'emerald' ? 'text-emerald-400' : 'text-red-400'}`}>{h.temp}°C</p>
-                  <p className="text-[10px] text-[var(--text-muted)]">{h.status}</p>
-                </div>
-              </div>
-            ))}
+          <div className="py-10 text-center">
+            <Thermometer size={32} className="mx-auto mb-3 text-[var(--text-muted)]" />
+            <p className="text-sm font-semibold text-[var(--text-muted)]">Cold storage monitoring not yet configured.</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">Connect your cold chain sensors to view live hub status.</p>
           </div>
         </div>
 
@@ -197,36 +183,10 @@ const SupplyChain = () => {
           <h3 className="font-display font-bold flex items-center gap-2 mb-5">
             <TrendingUp size={16} className="text-emerald-400" /> Logistics Efficiency
           </h3>
-          <div className="space-y-5">
-            {[
-              { label: 'On-Time Delivery', value: 94, display: '94%', color: 'emerald' },
-              { label: 'Fuel Efficiency Index', value: 82, display: '82%', color: 'blue' },
-              { label: 'Fleet Utilization', value: 75, display: '75%', color: 'amber' },
-              { label: 'Cold Chain Integrity', value: 97, display: '97%', color: 'teal' },
-            ].map(({ label, value, display, color }) => (
-              <div key={label}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm font-medium text-[var(--text-secondary)]">{label}</span>
-                  <span className={`font-bold text-sm ${
-                    color === 'emerald' ? 'text-emerald-400' :
-                    color === 'blue'   ? 'text-blue-400' :
-                    color === 'amber'  ? 'text-amber-400' : 'text-teal-400'
-                  }`}>{display}</span>
-                </div>
-                <div className="w-full h-2 bg-[var(--bg-surface-2)] rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${value}%` }}
-                    transition={{ duration: 0.8, ease: 'easeOut' }}
-                    className={`h-full rounded-full ${
-                      color === 'emerald' ? 'bg-emerald-500' :
-                      color === 'blue'   ? 'bg-blue-500' :
-                      color === 'amber'  ? 'bg-amber-500' : 'bg-teal-500'
-                    }`}
-                  />
-                </div>
-              </div>
-            ))}
+          <div className="py-10 text-center">
+            <TrendingUp size={32} className="mx-auto mb-3 text-[var(--text-muted)]" />
+            <p className="text-sm font-semibold text-[var(--text-muted)]">Efficiency metrics will appear here.</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">Connect your logistics system to track delivery performance.</p>
           </div>
         </div>
       </div>

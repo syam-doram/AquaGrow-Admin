@@ -120,51 +120,16 @@ interface BatchAlert {
   severity: 'EXPIRED' | 'CRITICAL' | 'WARNING' | 'OK';
 }
 
-// ─── Feed & Medicine Seed Data ────────────────────────────────────────────────
-const SEED_BATCHES: ProcurementBatch[] = [
-  { id: 'PB001', productId: 'P001', productName: 'AquaGrow Pro Feed 2mm', category: 'Feed', supplierName: 'VijayaGrow Agri', quantity: 500, unit: 'kg', purchasePrice: 55, totalCost: 27500, batchNumber: 'VGA-2604-A1', expiryDate: '2026-10-31', receivedDate: '2026-04-01', warehouseId: 'WH001', status: 'RECEIVED', invoiceNo: 'VGA-INV-1122' },
-  { id: 'PB002', productId: 'P002', productName: 'AquaGrow Grower Feed 3mm', category: 'Feed', supplierName: 'VijayaGrow Agri', quantity: 300, unit: 'kg', purchasePrice: 58, totalCost: 17400, batchNumber: 'VGA-2604-B2', expiryDate: '2026-11-30', receivedDate: '2026-04-05', warehouseId: 'WH001', status: 'RECEIVED', invoiceNo: 'VGA-INV-1145' },
-  { id: 'PB003', productId: 'P003', productName: 'WhiteSpot Shield Medicine', category: 'Medicine', supplierName: 'BioSolutions India', quantity: 80, unit: 'litre', purchasePrice: 420, totalCost: 33600, batchNumber: 'BSI-MED-0326', expiryDate: '2026-06-15', receivedDate: '2026-03-26', warehouseId: 'WH001', status: 'RECEIVED', invoiceNo: 'BSI-INV-882' },
-  { id: 'PB004', productId: 'P004', productName: 'AquaProbiotic Plus', category: 'Medicine', supplierName: 'BioSolutions India', quantity: 60, unit: 'kg', purchasePrice: 380, totalCost: 22800, batchNumber: 'BSI-PRO-0318', expiryDate: '2026-05-20', receivedDate: '2026-03-18', warehouseId: 'WH002', status: 'RECEIVED', invoiceNo: 'BSI-INV-790' },
-  { id: 'PB005', productId: 'P005', productName: 'Calcium Mineral Mix', category: 'Medicine', supplierName: 'AquaVet Pharma', quantity: 100, unit: 'kg', purchasePrice: 210, totalCost: 21000, batchNumber: 'AVP-MIN-0402', expiryDate: '2027-04-01', receivedDate: '2026-04-02', warehouseId: 'WH001', status: 'RECEIVED', invoiceNo: 'AVP-INV-441' },
-  { id: 'PB006', productId: 'P006', productName: 'EcoPond Disinfectant', category: 'Chemical', supplierName: 'ChemAqua Ltd', quantity: 200, unit: 'litre', purchasePrice: 165, totalCost: 33000, batchNumber: 'CA-DIS-0415', expiryDate: '2026-09-30', receivedDate: '2026-04-15', warehouseId: 'WH002', status: 'PARTIAL', invoiceNo: 'CA-INV-2231' },
-  { id: 'PB007', productId: 'P007', productName: 'ZeroAmmonia Treatment', category: 'Chemical', supplierName: 'ChemAqua Ltd', quantity: 150, unit: 'litre', purchasePrice: 195, totalCost: 29250, batchNumber: 'CA-AMM-0418', expiryDate: '2026-04-30', receivedDate: '2026-04-18', warehouseId: 'WH001', status: 'PENDING', invoiceNo: 'CA-INV-2280' },
-];
-
-const SEED_PACKING: PackingJob[] = [
-  { id: 'PK001', orderId: 'SHO-112', farmerName: 'Govind Rao', items: [{ product: 'AquaGrow Pro Feed 2mm', qty: 50, unit: 'kg', batchNo: 'VGA-2604-A1' }, { product: 'AquaProbiotic Plus', qty: 2, unit: 'kg', batchNo: 'BSI-PRO-0318' }], status: 'PACKED',       assignedTo: 'Balu Naidu (Picker/Packer)',  createdAt: '2026-04-18', packedAt: '2026-04-18' },
-  { id: 'PK002', orderId: 'SHO-113', farmerName: 'Krishnamurthy',    items: [{ product: 'WhiteSpot Shield Medicine', qty: 5, unit: 'litre', batchNo: 'BSI-MED-0326' }],                                                                                                status: 'IN_PROGRESS', assignedTo: 'Balu Naidu (Picker/Packer)',  createdAt: '2026-04-18' },
-  { id: 'PK003', orderId: 'SHO-114', farmerName: 'Venkatesh Naidu', items: [{ product: 'AquaGrow Grower Feed 3mm', qty: 100, unit: 'kg', batchNo: 'VGA-2604-B2' }, { product: 'Calcium Mineral Mix', qty: 5, unit: 'kg', batchNo: 'AVP-MIN-0402' }],                status: 'PENDING',     assignedTo: 'Balu Naidu (Picker/Packer)',  createdAt: '2026-04-18' },
-  { id: 'PK004', orderId: 'SHO-110', farmerName: 'Raju Babu',       items: [{ product: 'EcoPond Disinfectant', qty: 10, unit: 'litre', batchNo: 'CA-DIS-0415' }],                                                                                                    status: 'DISPATCHED',  assignedTo: 'Rupa Devi (Inventory Ctrl)', createdAt: '2026-04-17', packedAt: '2026-04-17' },
-];
-
-const SEED_USAGE: UsageRecord[] = [
-  { farmerId: 'F001', farmerName: 'Govind Rao', pondName: 'Pond A1', pondSize: 1.5, doc: 45, productId: 'P001', productName: 'AquaGrow Pro Feed 2mm', category: 'Feed', quantityUsed: 25, unit: 'kg', usageDate: '2026-04-18', notes: 'Morning + evening dose, 3x daily' },
-  { farmerId: 'F001', farmerName: 'Govind Rao', pondName: 'Pond A2', pondSize: 2.0, doc: 30, productId: 'P001', productName: 'AquaGrow Pro Feed 2mm', category: 'Feed', quantityUsed: 20, unit: 'kg', usageDate: '2026-04-18', notes: '4x daily feed' },
-  { farmerId: 'F002', farmerName: 'Krishnamurthy', pondName: 'Pond B3', pondSize: 2.5, doc: 58, productId: 'P002', productName: 'AquaGrow Grower Feed 3mm', category: 'Feed', quantityUsed: 35, unit: 'kg', usageDate: '2026-04-18', notes: 'Pre-harvest grower feed' },
-  { farmerId: 'F001', farmerName: 'Govind Rao', pondName: 'Pond A1', pondSize: 1.5, doc: 45, productId: 'P004', productName: 'AquaProbiotic Plus', category: 'Medicine', quantityUsed: 0.5, unit: 'kg', usageDate: '2026-04-17', notes: 'Weekly probiotic dosing' },
-  { farmerId: 'F003', farmerName: 'Venkatesh Naidu', pondName: 'Main Pond', pondSize: 3.0, doc: 20, productId: 'P001', productName: 'AquaGrow Pro Feed 2mm', category: 'Feed', quantityUsed: 18, unit: 'kg', usageDate: '2026-04-17', notes: 'Starter feed DOC 20' },
-  { farmerId: 'F004', farmerName: 'Raju Babu', pondName: 'East Pond', pondSize: 1.0, doc: 70, productId: 'P003', productName: 'WhiteSpot Shield Medicine', category: 'Medicine', quantityUsed: 1.5, unit: 'litre', usageDate: '2026-04-16', notes: 'WhiteSpot outbreak control' },
-];
-
-const SEED_REORDER: ReorderSuggestion[] = [
-  { farmerId: 'F001', farmerName: 'Govind Rao', productName: 'AquaGrow Pro Feed 2mm', currentStock: 125, dailyUsage: 45, daysRemaining: 2, recommendedQty: 200, unit: 'kg', urgency: 'CRITICAL' },
-  { farmerId: 'F002', farmerName: 'Krishnamurthy', productName: 'AquaGrow Grower Feed 3mm', currentStock: 80, dailyUsage: 35, daysRemaining: 2, recommendedQty: 150, unit: 'kg', urgency: 'CRITICAL' },
-  { farmerId: 'F001', farmerName: 'Govind Rao', productName: 'AquaProbiotic Plus', currentStock: 2.5, dailyUsage: 0.5, daysRemaining: 5, recommendedQty: 5, unit: 'kg', urgency: 'HIGH' },
-  { farmerId: 'F003', farmerName: 'Venkatesh Naidu', productName: 'AquaGrow Pro Feed 2mm', currentStock: 250, dailyUsage: 18, daysRemaining: 13, recommendedQty: 200, unit: 'kg', urgency: 'NORMAL' },
-  { farmerId: 'F004', farmerName: 'Raju Babu', productName: 'WhiteSpot Shield Medicine', currentStock: 3, dailyUsage: 1.5, daysRemaining: 2, recommendedQty: 10, unit: 'litre', urgency: 'CRITICAL' },
-];
-
-const getBatchAlerts = (): BatchAlert[] => {
-  const today = new Date('2026-04-18');
-  return SEED_BATCHES.map(b => {
+// ─── Batch alert helper (computed from live batches state) ───────────────────
+const computeBatchAlerts = (batches: ProcurementBatch[]): BatchAlert[] => {
+  const today = new Date();
+  return batches.map(b => {
     const expiry = new Date(b.expiryDate);
     const daysToExpiry = Math.round((expiry.getTime() - today.getTime()) / 86400000);
     const severity: BatchAlert['severity'] = daysToExpiry <= 0 ? 'EXPIRED' : daysToExpiry <= 14 ? 'CRITICAL' : daysToExpiry <= 45 ? 'WARNING' : 'OK';
     return { batchId: b.id, productName: b.productName, batchNumber: b.batchNumber, expiryDate: b.expiryDate, daysToExpiry, quantityRemaining: b.quantity, unit: b.unit, severity };
   });
 };
-const BATCH_ALERTS = getBatchAlerts();
 
 const MiniBar = ({ value, color = 'bg-emerald-500' }: { value: number; color?: string }) => (
   <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -246,13 +211,16 @@ const ProductsManagement = () => {
   const [editStockId, setEditStockId] = useState<string | null>(null);
   const [editStockQty, setEditStockQty] = useState(0);
   // Offers state (local — no backend endpoint)
-  const [offers, setOffers] = useState([
-    { id: 'OFF-001', name: 'Feed + Medicine Combo', type: 'Bundle', discount: 15, products: ['AquaGrow Pro Feed 2mm', 'WhiteSpot Shield Medicine'], validUntil: '2026-05-31', active: true },
-    { id: 'OFF-002', name: 'Monsoon Season Sale', type: 'Seasonal', discount: 20, products: ['All Feed Products'], validUntil: '2026-06-30', active: true },
-    { id: 'OFF-003', name: 'IoT Device Launch', type: 'Launch', discount: 10, products: ['SmartDO Sensor v2'], validUntil: '2026-04-30', active: false },
-  ]);
+  const [offers, setOffers] = useState<{ id: string; name: string; type: string; discount: number; products: string[]; validUntil: string; active: boolean }[]>([]);
   // Returns state (local — no backend endpoint)
   const [returns, setReturns] = useState<ReturnEntry[]>([]);
+
+  // Feed & Medicine lifecycle state (no backend endpoints — empty until implemented)
+  const [batches, setBatches] = useState<ProcurementBatch[]>([]);
+  const [packingJobs, setPackingJobs] = useState<PackingJob[]>([]);
+  const [usageRecords, setUsageRecords] = useState<UsageRecord[]>([]);
+  const [reorderSuggestions, setReorderSuggestions] = useState<ReorderSuggestion[]>([]);
+  const batchAlerts = useMemo(() => computeBatchAlerts(batches), [batches]);
 
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     category: 'Feed', status: 'active', mrp: 0, sellingPrice: 0, discount: 0,
@@ -375,8 +343,8 @@ const ProductsManagement = () => {
   const tabs: { id: Tab; label: string; icon: React.FC<any>; badge?: number }[] = [
     { id: 'catalog', label: 'Product Catalog', icon: Package, badge: stats.totalProducts },
     { id: 'inventory', label: 'Inventory', icon: Layers, badge: stats.lowStock + stats.outOfStock },
-    { id: 'procurement', label: '📦 Procurement', icon: Boxes, badge: SEED_BATCHES.filter(b => b.status === 'PENDING').length },
-    { id: 'packing', label: '📋 Packing', icon: ClipboardList, badge: SEED_PACKING.filter(p => p.status === 'PENDING' || p.status === 'IN_PROGRESS').length },
+    { id: 'procurement', label: '📦 Procurement', icon: Boxes, badge: batches.filter(b => b.status === 'PENDING').length },
+    { id: 'packing', label: '📋 Packing', icon: ClipboardList, badge: packingJobs.filter(p => p.status === 'PENDING' || p.status === 'IN_PROGRESS').length },
     { id: 'orders', label: 'Shop Orders', icon: ShoppingBag, badge: stats.pendingOrders },
     { id: 'delivery', label: 'Delivery & Logistics', icon: Truck },
     { id: 'payments', label: 'Payments & Billing', icon: DollarSign },
@@ -385,8 +353,8 @@ const ProductsManagement = () => {
     { id: 'suppliers', label: 'Suppliers', icon: Building2, badge: stats.activeSuppliers },
     { id: 'reviews', label: 'Reviews', icon: Star, badge: stats.pendingReviews },
     { id: 'usage', label: '🌱 Usage Tracking', icon: Leaf },
-    { id: 'reorder', label: '🔁 Auto Reorder', icon: RotateCcw, badge: SEED_REORDER.filter(r => r.urgency === 'CRITICAL').length },
-    { id: 'expiry', label: '⚠️ Expiry & Batch', icon: FlaskConical, badge: BATCH_ALERTS.filter(a => a.severity === 'CRITICAL' || a.severity === 'EXPIRED').length },
+    { id: 'reorder', label: '🔁 Auto Reorder', icon: RotateCcw, badge: reorderSuggestions.filter(r => r.urgency === 'CRITICAL').length },
+    { id: 'expiry', label: '⚠️ Expiry & Batch', icon: FlaskConical, badge: batchAlerts.filter(a => a.severity === 'CRITICAL' || a.severity === 'EXPIRED').length },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   ];
 
@@ -1181,10 +1149,10 @@ const ProductsManagement = () => {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Total Batches', value: SEED_BATCHES.length, color: 'text-blue-400' },
-              { label: 'Total Investment', value: `₹${(SEED_BATCHES.reduce((s,b) => s + b.totalCost, 0) / 1000).toFixed(0)}K`, color: 'text-emerald-400' },
-              { label: 'Medicine Batches', value: SEED_BATCHES.filter(b => b.category === 'Medicine').length, color: 'text-red-400' },
-              { label: 'Pending Arrival', value: SEED_BATCHES.filter(b => b.status === 'PENDING').length, color: 'text-amber-400' },
+              { label: 'Total Batches', value: batches.length, color: 'text-blue-400' },
+              { label: 'Total Investment', value: `₹${(batches.reduce((s,b) => s + b.totalCost, 0) / 1000).toFixed(0)}K`, color: 'text-emerald-400' },
+              { label: 'Medicine Batches', value: batches.filter(b => b.category === 'Medicine').length, color: 'text-red-400' },
+              { label: 'Pending Arrival', value: batches.filter(b => b.status === 'PENDING').length, color: 'text-amber-400' },
             ].map(s => (
               <div key={s.label} className="glass-panel p-5 text-center">
                 <p className={`text-2xl font-display font-bold ${s.color}`}>{s.value}</p>
@@ -1200,7 +1168,7 @@ const ProductsManagement = () => {
               </button>
             </div>
             <div className="divide-y divide-white/5">
-              {SEED_BATCHES.map((b, i) => (
+              {batches.map((b, i) => (
                 <motion.div key={b.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }}
                   className="p-5 flex flex-wrap items-center gap-4 hover:bg-white/3 transition-all">
                   <div className={`p-2.5 rounded-xl shrink-0 ${
@@ -1267,7 +1235,7 @@ const ProductsManagement = () => {
                   emoji: '🏭',
                   color: 'border-amber-500/20 bg-amber-500/5 text-amber-400',
                   tasks: ['Supervise all packing jobs', 'Approve batch usage', 'Coordinate dispatch with Logistics'],
-                  jobCount: SEED_PACKING.filter(p => p.status === 'PENDING' || p.status === 'IN_PROGRESS').length,
+                  jobCount: packingJobs.filter(p => p.status === 'PENDING' || p.status === 'IN_PROGRESS').length,
                   jobLabel: 'Active Jobs',
                 },
                 {
@@ -1276,7 +1244,7 @@ const ProductsManagement = () => {
                   emoji: '🫙',
                   color: 'border-blue-500/20 bg-blue-500/5 text-blue-400',
                   tasks: ['Pick items from shelves', 'Verify batch numbers', 'Seal & label packages'],
-                  jobCount: SEED_PACKING.filter(p => p.assignedTo.includes('Balu')).length,
+                  jobCount: packingJobs.filter(p => p.assignedTo.includes('Balu')).length,
                   jobLabel: 'Assigned to Balu',
                 },
                 {
@@ -1285,7 +1253,7 @@ const ProductsManagement = () => {
                   emoji: '📊',
                   color: 'border-purple-500/20 bg-purple-500/5 text-purple-400',
                   tasks: ['Update stock after packing', 'Flag expiry/low stock', 'Procurement requests'],
-                  jobCount: SEED_PACKING.filter(p => p.assignedTo.includes('Rupa')).length,
+                  jobCount: packingJobs.filter(p => p.assignedTo.includes('Rupa')).length,
                   jobLabel: 'Assigned to Rupa',
                 },
                 {
@@ -1294,7 +1262,7 @@ const ProductsManagement = () => {
                   emoji: '✅',
                   color: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400',
                   tasks: ['Quality check before seal', 'Verify weight & quantity', 'Sign off on PACKED status'],
-                  jobCount: SEED_PACKING.filter(p => p.status === 'PACKED').length,
+                  jobCount: packingJobs.filter(p => p.status === 'PACKED').length,
                   jobLabel: 'QC Cleared',
                 },
               ].map(({ name, role, emoji, color, tasks, jobCount, jobLabel }) => (
@@ -1320,10 +1288,10 @@ const ProductsManagement = () => {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Pending Pack', value: SEED_PACKING.filter(p => p.status === 'PENDING').length, color: 'text-amber-400' },
-              { label: 'In Progress', value: SEED_PACKING.filter(p => p.status === 'IN_PROGRESS').length, color: 'text-blue-400' },
-              { label: 'Packed', value: SEED_PACKING.filter(p => p.status === 'PACKED').length, color: 'text-emerald-400' },
-              { label: 'Dispatched', value: SEED_PACKING.filter(p => p.status === 'DISPATCHED').length, color: 'text-purple-400' },
+              { label: 'Pending Pack', value: packingJobs.filter(p => p.status === 'PENDING').length, color: 'text-amber-400' },
+              { label: 'In Progress', value: packingJobs.filter(p => p.status === 'IN_PROGRESS').length, color: 'text-blue-400' },
+              { label: 'Packed', value: packingJobs.filter(p => p.status === 'PACKED').length, color: 'text-emerald-400' },
+              { label: 'Dispatched', value: packingJobs.filter(p => p.status === 'DISPATCHED').length, color: 'text-purple-400' },
             ].map(s => (
               <div key={s.label} className="glass-panel p-5 text-center">
                 <p className={`text-2xl font-display font-bold ${s.color}`}>{s.value}</p>
@@ -1332,7 +1300,7 @@ const ProductsManagement = () => {
             ))}
           </div>
           <div className="space-y-4">
-            {SEED_PACKING.map((job, i) => (
+            {packingJobs.map((job, i) => (
               <motion.div key={job.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
                 className={`glass-panel p-6 border ${
                   job.status === 'PENDING' ? 'border-amber-500/10' :
@@ -1395,10 +1363,10 @@ const ProductsManagement = () => {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Total Records', value: SEED_USAGE.length, color: 'text-emerald-400' },
-              { label: 'Feed Usage Today', value: `${SEED_USAGE.filter(u => u.usageDate === '2026-04-18' && u.category === 'Feed').reduce((s,u) => s + u.quantityUsed, 0)} kg`, color: 'text-blue-400' },
-              { label: 'Medicine Recorded', value: `${SEED_USAGE.filter(u => u.category === 'Medicine').length} uses`, color: 'text-red-400' },
-              { label: 'Farmers Tracked', value: new Set(SEED_USAGE.map(u => u.farmerId)).size, color: 'text-purple-400' },
+              { label: 'Total Records', value: usageRecords.length, color: 'text-emerald-400' },
+              { label: 'Feed Usage Today', value: `${usageRecords.filter(u => u.usageDate === new Date().toISOString().split('T')[0] && u.category === 'Feed').reduce((s,u) => s + u.quantityUsed, 0)} kg`, color: 'text-blue-400' },
+              { label: 'Medicine Recorded', value: `${usageRecords.filter(u => u.category === 'Medicine').length} uses`, color: 'text-red-400' },
+              { label: 'Farmers Tracked', value: new Set(usageRecords.map(u => u.farmerId)).size, color: 'text-purple-400' },
             ].map(s => (
               <div key={s.label} className="glass-panel p-5 text-center">
                 <p className={`text-2xl font-display font-bold ${s.color}`}>{s.value}</p>
@@ -1411,7 +1379,7 @@ const ProductsManagement = () => {
               <h4 className="font-display font-bold">Farm Usage Log</h4>
             </div>
             <div className="divide-y divide-white/5">
-              {SEED_USAGE.map((u, i) => (
+              {usageRecords.map((u, i) => (
                 <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }}
                   className="p-5 flex flex-wrap items-start gap-4 hover:bg-white/3 transition-all">
                   <div className={`p-2.5 rounded-xl shrink-0 ${
@@ -1481,9 +1449,9 @@ const ProductsManagement = () => {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {[
-              { label: 'Critical (≤2 days)', value: SEED_REORDER.filter(r => r.urgency === 'CRITICAL').length, color: 'text-red-400' },
-              { label: 'High (≤5 days)', value: SEED_REORDER.filter(r => r.urgency === 'HIGH').length, color: 'text-amber-400' },
-              { label: 'Normal', value: SEED_REORDER.filter(r => r.urgency === 'NORMAL').length, color: 'text-emerald-400' },
+              { label: 'Critical (≤2 days)', value: reorderSuggestions.filter(r => r.urgency === 'CRITICAL').length, color: 'text-red-400' },
+              { label: 'High (≤5 days)', value: reorderSuggestions.filter(r => r.urgency === 'HIGH').length, color: 'text-amber-400' },
+              { label: 'Normal', value: reorderSuggestions.filter(r => r.urgency === 'NORMAL').length, color: 'text-emerald-400' },
             ].map(s => (
               <div key={s.label} className="glass-panel p-5 text-center">
                 <p className={`text-2xl font-display font-bold ${s.color}`}>{s.value}</p>
@@ -1492,7 +1460,7 @@ const ProductsManagement = () => {
             ))}
           </div>
           <div className="space-y-4">
-            {SEED_REORDER.sort((a, b) => a.daysRemaining - b.daysRemaining).map((r, i) => (
+            {reorderSuggestions.sort((a, b) => a.daysRemaining - b.daysRemaining).map((r, i) => (
               <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.07 }}
                 className={`glass-panel p-6 border ${
                   r.urgency === 'CRITICAL' ? 'border-red-500/20 bg-red-500/3' :
@@ -1563,10 +1531,10 @@ const ProductsManagement = () => {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Expired Now', value: BATCH_ALERTS.filter(a => a.severity === 'EXPIRED').length, color: 'text-red-400' },
-              { label: 'Expiring ≤14d', value: BATCH_ALERTS.filter(a => a.severity === 'CRITICAL').length, color: 'text-red-400' },
-              { label: 'Expiring ≤45d', value: BATCH_ALERTS.filter(a => a.severity === 'WARNING').length, color: 'text-amber-400' },
-              { label: 'Safe Batches', value: BATCH_ALERTS.filter(a => a.severity === 'OK').length, color: 'text-emerald-400' },
+              { label: 'Expired Now', value: batchAlerts.filter(a => a.severity === 'EXPIRED').length, color: 'text-red-400' },
+              { label: 'Expiring ≤14d', value: batchAlerts.filter(a => a.severity === 'CRITICAL').length, color: 'text-red-400' },
+              { label: 'Expiring ≤45d', value: batchAlerts.filter(a => a.severity === 'WARNING').length, color: 'text-amber-400' },
+              { label: 'Safe Batches', value: batchAlerts.filter(a => a.severity === 'OK').length, color: 'text-emerald-400' },
             ].map(s => (
               <div key={s.label} className="glass-panel p-5 text-center">
                 <p className={`text-2xl font-display font-bold ${s.color}`}>{s.value}</p>
@@ -1579,7 +1547,7 @@ const ProductsManagement = () => {
               <h4 className="font-display font-bold">Batch Expiry Dashboard</h4>
             </div>
             <div className="divide-y divide-white/5">
-              {BATCH_ALERTS.sort((a, b) => a.daysToExpiry - b.daysToExpiry).map((a, i) => (
+              {batchAlerts.sort((a, b) => a.daysToExpiry - b.daysToExpiry).map((a, i) => (
                 <motion.div key={a.batchId} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }}
                   className="p-5 flex flex-wrap items-center gap-4 hover:bg-white/3 transition-all">
                   <div className={`p-2.5 rounded-xl shrink-0 ${

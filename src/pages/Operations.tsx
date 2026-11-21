@@ -1,48 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Waves, Search, Filter, AlertTriangle, CheckCircle2, Clock,
-  Thermometer, Droplets, Activity, ChevronRight, MoreVertical,
-  Cpu, Calendar, TrendingUp, Eye, Zap, ArrowUpRight, MapPin,
-  RefreshCw, PlayCircle, StopCircle
+  Waves, Search, AlertTriangle, Activity,
+  Cpu, Calendar, TrendingUp, MoreVertical,
+  RefreshCw, PlayCircle, Zap
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Pond } from '../types';
+import { LivePond, fetchPonds } from '../services/aquagrowApi';
 
-/* ── mock data ──────────────────────────────────────────────────────────────── */
-const mockPonds: Pond[] = [
-  {
-    id: 'POND-001', farmerId: 'F-101', farmerName: 'John Doe', name: 'Pond Alpha',
-    sizeInAcres: 2.5, species: 'L. Vannamei', stockingDensity: 80,
-    stockingDate: '2026-02-15', expectedHarvestDate: '2026-05-15',
-    feedUsage: 1200, mortalityRate: 2.5, survivalRate: 97.5, status: 'ACTIVE',
-    lastAiAnalysis: { timestamp: '2026-04-10 10:00', result: 'Optimal Growth', confidence: 98 }
-  },
-  {
-    id: 'POND-002', farmerId: 'F-102', farmerName: 'Jane Smith', name: 'Smith Pond 1',
-    sizeInAcres: 1.5, species: 'L. Vannamei', stockingDensity: 70,
-    stockingDate: '2026-01-10', expectedHarvestDate: '2026-04-20',
-    feedUsage: 2500, mortalityRate: 8.2, survivalRate: 91.8, status: 'ALERT',
-    lastAiAnalysis: { timestamp: '2026-04-10 09:30', result: 'Low Oxygen Risk', confidence: 85 }
-  },
-  {
-    id: 'POND-003', farmerId: 'F-101', farmerName: 'John Doe', name: 'Pond Beta',
-    sizeInAcres: 3.0, species: 'Tiger Shrimp', stockingDensity: 60,
-    stockingDate: '2026-03-01', expectedHarvestDate: '2026-06-01',
-    feedUsage: 450, mortalityRate: 15.0, survivalRate: 85.0, status: 'DISEASE_DETECTED',
-    lastAiAnalysis: { timestamp: '2026-04-10 11:00', result: 'White Spot Syndrome', confidence: 92 }
-  },
-];
-
-const STATUS_CONFIG: Record<Pond['status'], { label: string; cls: string; dot: string }> = {
-  ACTIVE:           { label: 'Active',           cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', dot: 'bg-emerald-400' },
-  ALERT:            { label: 'Alert',             cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20',       dot: 'bg-amber-400' },
-  DISEASE_DETECTED: { label: 'Disease Detected', cls: 'bg-red-500/10 text-red-400 border-red-500/20',            dot: 'bg-red-400' },
-  HARVESTED:        { label: 'Harvested',         cls: 'bg-blue-500/10 text-blue-400 border-blue-500/20',         dot: 'bg-blue-400' },
-  EMPTY:            { label: 'Empty',             cls: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',         dot: 'bg-zinc-400' },
+// ── Status helpers for LivePond (backend uses lowercase) ─────────────────────
+const STATUS_CONFIG: Record<string, { label: string; cls: string; dot: string }> = {
+  active:           { label: 'Active',           cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', dot: 'bg-emerald-400' },
+  harvested:        { label: 'Harvested',         cls: 'bg-blue-500/10 text-blue-400 border-blue-500/20',         dot: 'bg-blue-400' },
+  archive:          { label: 'Archived',          cls: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',         dot: 'bg-zinc-400' },
+  planned:          { label: 'Planned',           cls: 'bg-purple-500/10 text-purple-400 border-purple-500/20',   dot: 'bg-purple-400' },
+  harvest_pending:  { label: 'Harvest Pending',   cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20',      dot: 'bg-amber-400' },
 };
 
-const StatusBadge = ({ status }: { status: Pond['status'] }) => {
-  const c = STATUS_CONFIG[status];
+const StatusBadge = ({ status }: { status: string }) => {
+  const c = STATUS_CONFIG[status] ?? { label: status, cls: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20', dot: 'bg-zinc-400' };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${c.cls}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
@@ -54,18 +29,34 @@ const StatusBadge = ({ status }: { status: Pond['status'] }) => {
 /* ── component ──────────────────────────────────────────────────────────────── */
 const Operations = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [ponds, setPonds] = useState<LivePond[]>([]);
+  const [pondsLoading, setPondsLoading] = useState(true);
 
-  const filtered = mockPonds.filter(p =>
+  useEffect(() => {
+    fetchPonds()
+      .then(data => { setPonds(data); })
+      .catch(() => { setPonds([]); })
+      .finally(() => setPondsLoading(false));
+  }, []);
+
+  const filtered = ponds.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.farmerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.id.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.farmer?.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p._id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const stats = {
-    active: mockPonds.filter(p => p.status === 'ACTIVE').length,
-    alert: mockPonds.filter(p => p.status === 'ALERT' || p.status === 'DISEASE_DETECTED').length,
-    harvested: mockPonds.filter(p => p.status === 'HARVESTED').length,
+    active:    ponds.filter(p => p.status === 'active').length,
+    alert:     ponds.filter(p => p.alerts && p.alerts.length > 0).length,
+    harvested: ponds.filter(p => p.status === 'harvested' || p.status === 'harvest_pending').length,
+    archive:   ponds.filter(p => p.status === 'archive').length,
   };
+
+  // Upcoming harvests: active ponds sorted by DOC desc (highest DOC = closest to harvest)
+  const upcomingHarvests = ponds
+    .filter(p => p.status === 'active' || p.status === 'harvest_pending')
+    .sort((a, b) => b.doc - a.doc)
+    .slice(0, 5);
 
   return (
     <div className="space-y-8 pb-10">
@@ -91,10 +82,10 @@ const Operations = () => {
       {/* ── KPI Bar ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Active Ponds', value: '128', icon: Waves, color: 'emerald', sub: '12 zones' },
-          { label: 'Harvests This Month', value: '14', icon: Calendar, color: 'teal', sub: '6 upcoming' },
-          { label: 'Disease Alerts', value: `${stats.alert}`, icon: AlertTriangle, color: 'red', sub: 'Needs attention' },
-          { label: 'Avg Survival Rate', value: '91.4%', icon: TrendingUp, color: 'blue', sub: '+2.1% vs prev' },
+          { label: 'Active Ponds',      value: pondsLoading ? '…' : `${stats.active}`,    icon: Waves,         color: 'emerald', sub: `${ponds.length} total` },
+          { label: 'Near Harvest',      value: pondsLoading ? '…' : `${upcomingHarvests.length}`, icon: Calendar, color: 'teal', sub: 'Sorted by DOC' },
+          { label: 'With Alerts',       value: pondsLoading ? '…' : `${stats.alert}`,     icon: AlertTriangle, color: 'red',     sub: 'Needs attention' },
+          { label: 'Harvested / Pending', value: pondsLoading ? '…' : `${stats.harvested}`, icon: TrendingUp, color: 'blue',    sub: 'Completed cycles' },
         ].map(({ label, value, icon: Icon, color, sub }) => (
           <motion.div key={label} whileHover={{ y: -2 }} className="glass-panel p-5">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${
@@ -116,10 +107,10 @@ const Operations = () => {
       <div className="glass-panel p-5 flex flex-wrap items-center gap-4">
         <p className="text-sm font-bold text-[var(--text-secondary)] mr-2">Live Pond Status:</p>
         {[
-          { label: 'Healthy', count: stats.active, color: 'emerald' },
-          { label: 'Alert / Disease', count: stats.alert, color: 'red' },
-          { label: 'Harvested', count: stats.harvested, color: 'blue' },
-          { label: 'Empty', count: 3, color: 'zinc' },
+          { label: 'Active',           count: stats.active,    color: 'emerald' },
+          { label: 'Alerts',           count: stats.alert,     color: 'red' },
+          { label: 'Harvested',        count: stats.harvested, color: 'blue' },
+          { label: 'Archived',         count: stats.archive,   color: 'zinc' },
         ].map(s => (
           <div key={s.label} className="flex items-center gap-2">
             <span className={`w-2.5 h-2.5 rounded-full ${
@@ -137,7 +128,7 @@ const Operations = () => {
       <div className="glass-panel overflow-hidden">
         <div className="px-6 py-4 border-b border-[var(--border-subtle)] flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h3 className="text-xl font-display font-bold flex items-center gap-2">
-            <Activity size={18} className="text-teal-400" /> Active Ponds & Health
+            <Activity size={18} className="text-teal-400" /> Active Ponds &amp; Health
           </h3>
           <div className="relative w-full md:w-64">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
@@ -154,46 +145,47 @@ const Operations = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface-2)]">
-                {['Pond / Farmer', 'Species & Size', 'Stocking → Harvest', 'Feed / Mortality', 'AI Analysis', 'Status', ''].map(h => (
+                {['Pond / Farmer', 'Species & Size', 'DOC / Stage', 'Feed (7d)', 'Last Water Log', 'Status', ''].map(h => (
                   <th key={h} className="px-5 py-3.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-subtle)]">
               {filtered.map((pond) => (
-                <tr key={pond.id} className="hover:bg-[var(--bg-hover)] transition-colors group">
+                <tr key={pond._id} className="hover:bg-[var(--bg-hover)] transition-colors group">
                   <td className="px-5 py-4">
-                    <p className="font-mono text-xs text-[var(--text-muted)]">{pond.id}</p>
-                    <p className="font-bold text-sm">{pond.farmerName}</p>
+                    <p className="font-mono text-xs text-[var(--text-muted)]">{pond._id.slice(-6)}</p>
+                    <p className="font-bold text-sm">{pond.farmer?.name ?? '—'}</p>
                     <p className="text-[10px] text-[var(--text-muted)]">{pond.name}</p>
                   </td>
                   <td className="px-5 py-4">
-                    <p className="text-sm font-semibold">{pond.species}</p>
-                    <p className="text-xs text-[var(--text-muted)]">{pond.sizeInAcres} acres • {pond.stockingDensity}/m²</p>
+                    <p className="text-sm font-semibold">{pond.species ?? '—'}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{pond.size != null ? `${pond.size} acres` : '—'} · {pond.seedCount != null ? `${pond.seedCount.toLocaleString()} seed` : '—'}</p>
                   </td>
                   <td className="px-5 py-4">
-                    <p className="text-xs text-[var(--text-muted)]">Stock: {pond.stockingDate}</p>
-                    <p className="text-xs text-emerald-400 font-semibold">Harvest: {pond.expectedHarvestDate}</p>
+                    <p className="text-sm font-bold text-teal-400">DOC {pond.doc}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{pond.stage}</p>
                   </td>
                   <td className="px-5 py-4">
-                    <p className="text-sm font-bold">{pond.feedUsage.toLocaleString()} kg</p>
-                    <p className={`text-xs font-semibold ${pond.mortalityRate > 10 ? 'text-red-400' : 'text-[var(--text-muted)]'}`}>
-                      {pond.mortalityRate}% mortality
-                    </p>
+                    <p className="text-sm font-bold">{pond.feedLast7Days.toLocaleString()} kg</p>
+                    <p className="text-xs text-[var(--text-muted)]">{pond.feedLogCount} logs</p>
                   </td>
                   <td className="px-5 py-4">
-                    {pond.lastAiAnalysis && (
-                      <div className="flex items-start gap-2">
-                        <Cpu size={13} className="text-emerald-400 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-xs font-semibold">{pond.lastAiAnalysis.result}</p>
-                          <p className="text-[10px] text-[var(--text-muted)]">{pond.lastAiAnalysis.confidence}% confidence</p>
-                        </div>
+                    {pond.lastWaterLog ? (
+                      <div className="space-y-0.5">
+                        {pond.lastWaterLog.ph != null && <p className="text-xs text-[var(--text-muted)]">pH {pond.lastWaterLog.ph}</p>}
+                        {pond.lastWaterLog.do != null && <p className="text-xs text-[var(--text-muted)]">DO {pond.lastWaterLog.do}</p>}
+                        {pond.lastWaterLog.temp != null && <p className="text-xs text-[var(--text-muted)]">Temp {pond.lastWaterLog.temp}°C</p>}
                       </div>
+                    ) : (
+                      <p className="text-xs text-[var(--text-muted)]">No log</p>
                     )}
                   </td>
                   <td className="px-5 py-4">
                     <StatusBadge status={pond.status} />
+                    {pond.alerts && pond.alerts.length > 0 && (
+                      <p className="text-[9px] text-red-400 mt-1">{pond.alerts.length} alert{pond.alerts.length > 1 ? 's' : ''}</p>
+                    )}
                   </td>
                   <td className="px-5 py-4 text-right">
                     <button className="p-2 hover:bg-[var(--bg-hover)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
@@ -207,38 +199,37 @@ const Operations = () => {
           {filtered.length === 0 && (
             <div className="py-16 text-center">
               <Waves size={36} className="mx-auto mb-3 text-[var(--text-muted)]" />
-              <p className="text-[var(--text-muted)]">No ponds match your search.</p>
+              <p className="text-[var(--text-muted)]">
+                {pondsLoading ? 'Loading ponds…' : ponds.length === 0 ? 'No ponds found. Add ponds to get started.' : 'No ponds match your search.'}
+              </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Upstream AI Alerts ── */}
+      {/* ── Upcoming Harvest Schedule ── */}
       <div className="glass-panel p-6">
         <h3 className="font-display font-bold flex items-center gap-2 mb-5">
-          <Zap size={16} className="text-amber-400" /> Upcoming Harvest Schedule
+          <Zap size={16} className="text-amber-400" /> Near-Harvest Ponds (by DOC)
         </h3>
         <div className="space-y-3">
-          {[
-            { pond: 'POND-001', farmer: 'John Doe', date: '2026-05-15', biomass: '2.4 T', status: 'On Track' },
-            { pond: 'POND-004', farmer: 'Priya Menon', date: '2026-05-22', biomass: '1.8 T', status: 'Pending Confirmation' },
-            { pond: 'POND-007', farmer: 'Ramesh K.', date: '2026-06-01', biomass: '3.1 T', status: 'On Track' },
-          ].map(r => (
-            <div key={r.pond} className="flex items-center justify-between p-4 rounded-xl bg-[var(--bg-surface-2)] border border-[var(--border-subtle)]">
+          {upcomingHarvests.length === 0 ? (
+            <div className="py-10 text-center">
+              <Calendar size={32} className="mx-auto mb-3 text-[var(--text-muted)]" />
+              <p className="text-[var(--text-muted)] text-sm">No active ponds. Add ponds to see harvest schedule.</p>
+            </div>
+          ) : upcomingHarvests.map(r => (
+            <div key={r._id} className="flex items-center justify-between p-4 rounded-xl bg-[var(--bg-surface-2)] border border-[var(--border-subtle)]">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                   <Calendar size={16} className="text-emerald-400" />
                 </div>
                 <div>
-                  <p className="font-bold text-sm">{r.farmer} — {r.pond}</p>
-                  <p className="text-xs text-[var(--text-muted)]">{r.date} · Est. {r.biomass}</p>
+                  <p className="font-bold text-sm">{r.farmer?.name ?? '—'} — {r.name}</p>
+                  <p className="text-xs text-[var(--text-muted)]">DOC {r.doc} · {r.species ?? '—'} · {r.size != null ? `${r.size} acres` : '—'}</p>
                 </div>
               </div>
-              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
-                r.status === 'On Track'
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                  : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-              }`}>{r.status}</span>
+              <StatusBadge status={r.status} />
             </div>
           ))}
         </div>

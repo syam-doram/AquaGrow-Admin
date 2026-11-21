@@ -87,67 +87,11 @@ interface TrackingAlert {
   resolved: boolean;
 }
 
-// ─── Field Tracking Seed Data ─────────────────────────────────────────────────
-const SEED_AREAS: ProviderArea[] = [
-  { id: 'A001', providerId: 'P001', state: 'Andhra Pradesh', district: 'Nellore', mandal: 'Nellore Urban', villages: ['Trunk Road', 'Magunta Layout', 'Industrial Area'], geoFenceRadius: 30 },
-  { id: 'A002', providerId: 'P002', state: 'Andhra Pradesh', district: 'West Godavari', mandal: 'Bhimavaram', villages: ['Bhimavaram Town', 'Tadepalligudem', 'Narasapuram'], geoFenceRadius: 45 },
-  { id: 'A003', providerId: 'P003', state: 'Andhra Pradesh', district: 'Prakasam', mandal: 'Ongole', villages: ['Ongole Town', 'Chirala', 'Kandukur'], geoFenceRadius: 50 },
-];
+// ─── Field Tracking Seed Data — removed (no backend endpoints yet) ────────────
 
-const SEED_CHECKINS: CheckInRecord[] = [
-  { id: 'CI001', providerId: 'P001', date: '2026-04-18', checkIn: '08:55', checkOut: '18:30', checkInLocation: 'Nellore HQ', checkOutLocation: 'Kavali Village', workHours: 9.6, distanceCovered: 72, status: 'DONE' },
-  { id: 'CI002', providerId: 'P002', date: '2026-04-18', checkIn: '09:10', checkOut: '', checkInLocation: 'Bhimavaram Base', checkOutLocation: '', workHours: 0, distanceCovered: 38, status: 'ACTIVE' },
-  { id: 'CI003', providerId: 'P003', date: '2026-04-18', checkIn: '', checkOut: '', checkInLocation: '', checkOutLocation: '', workHours: 0, distanceCovered: 0, status: 'MISSED' },
-  { id: 'CI004', providerId: 'P001', date: '2026-04-17', checkIn: '08:30', checkOut: '17:45', checkInLocation: 'Nellore HQ', checkOutLocation: 'Gudur Road', workHours: 9.25, distanceCovered: 85, status: 'DONE' },
-  { id: 'CI005', providerId: 'P002', date: '2026-04-17', checkIn: '09:00', checkOut: '18:00', checkInLocation: 'Bhimavaram Base', checkOutLocation: 'Narasapuram', workHours: 9.0, distanceCovered: 54, status: 'DONE' },
-];
-
-const SEED_FIELD_VISITS: ProviderFieldVisit[] = [
-  { id: 'FV001', providerId: 'P001', farmerName: 'Govind Rao', farmName: 'Sri Lakshmi Aqua Farm', pondDetails: '3 ponds, 2.5 acres', visitDate: '2026-04-18', purpose: 'SALES', notes: 'Interested in IoT sensors + monthly feed package', gpsCaptured: true, photoUploaded: true, location: 'Kavali, Nellore', outcome: 'Closed: Azolla 50kg + Probiotic pack', status: 'COMPLETED' },
-  { id: 'FV002', providerId: 'P001', farmerName: 'Krishnamurthy', farmName: 'Krishna Prawn Farm', pondDetails: '5 ponds, 4 acres', visitDate: '2026-04-18', purpose: 'SUPPORT', notes: 'Water quality issue – high ammonia levels', gpsCaptured: true, photoUploaded: true, location: 'Nellore Rural', outcome: 'Advised water exchange + medication', status: 'COMPLETED' },
-  { id: 'FV003', providerId: 'P002', farmerName: 'Venkatesh Naidu', farmName: 'VN Aquaculture', pondDetails: '8 ponds, 6 acres', visitDate: '2026-04-18', purpose: 'INSTALLATION', notes: 'IoT aerator controller installation', gpsCaptured: true, photoUploaded: false, location: 'Bhimavaram', outcome: 'Installed 2 units, 1 pending', status: 'PENDING' },
-  { id: 'FV004', providerId: 'P002', farmerName: 'Raju Babu', farmName: 'Raju Fish Farm', pondDetails: '2 ponds, 1.5 acres', visitDate: '2026-04-17', purpose: 'INSPECTION', notes: 'DOC 45 harvest assessment', gpsCaptured: true, photoUploaded: true, location: 'Narasapuram, WG', outcome: 'Harvest recommended in 10 days', status: 'COMPLETED' },
-  { id: 'FV005', providerId: 'P003', farmerName: 'Suryanarayana', farmName: 'Modern Aqua Ltd', pondDetails: '12 ponds, 10 acres', visitDate: '2026-04-17', purpose: 'SALES', notes: 'Premium subscription pitch + full device package', gpsCaptured: false, photoUploaded: false, location: 'Ongole, Prakasam', outcome: 'Follow-up scheduled', status: 'PENDING' },
-];
-
-const SEED_PROVIDER_TASKS: ProviderTask[] = [
-  { id: 'PT001', providerId: 'P001', title: 'Visit 5 Farms – Nellore Zone', description: 'Cover Kavali, Nellore Rural, and Gudur mandals', category: 'FARM_VISIT', targetCount: 5, completedCount: 3, dueDate: '2026-04-20', status: 'IN_PROGRESS' },
-  { id: 'PT002', providerId: 'P001', title: 'Sell 10 Bags Feed – April', description: 'Target: Azolla + Probiotic combo packs', category: 'SALES', targetCount: 10, completedCount: 7, dueDate: '2026-04-30', status: 'IN_PROGRESS' },
-  { id: 'PT003', providerId: 'P002', title: 'Install 4 IoT Devices', description: 'Aerator controllers at VN Aquaculture and Raju Fish Farm', category: 'DEVICE_INSTALL', targetCount: 4, completedCount: 2, dueDate: '2026-04-22', status: 'IN_PROGRESS' },
-  { id: 'PT004', providerId: 'P002', title: 'Water Quality Survey – Bhimavaram', description: 'Test and report water quality across 6 farms', category: 'INSPECTION', targetCount: 6, completedCount: 6, dueDate: '2026-04-17', status: 'COMPLETED' },
-  { id: 'PT005', providerId: 'P003', title: 'Farmer Onboarding – Ongole', description: 'Onboard 8 new farmers to AquaGrow platform', category: 'FARM_VISIT', targetCount: 8, completedCount: 2, dueDate: '2026-04-15', status: 'OVERDUE' },
-];
-
-const SEED_DAILY_REPORTS: DailyReport[] = [
-  { providerId: 'P001', date: '2026-04-18', totalVisits: 3, distanceTravelled: 72, salesAmount: 12500, farmersContacted: 5, devicesInstalled: 0, checkInTime: '08:55', checkOutTime: '18:30' },
-  { providerId: 'P002', date: '2026-04-18', totalVisits: 1, distanceTravelled: 38, salesAmount: 0, farmersContacted: 2, devicesInstalled: 2, checkInTime: '09:10', checkOutTime: '' },
-  { providerId: 'P003', date: '2026-04-18', totalVisits: 0, distanceTravelled: 0, salesAmount: 0, farmersContacted: 0, devicesInstalled: 0, checkInTime: '', checkOutTime: '' },
-  { providerId: 'P001', date: '2026-04-17', totalVisits: 4, distanceTravelled: 85, salesAmount: 18700, farmersContacted: 7, devicesInstalled: 1, checkInTime: '08:30', checkOutTime: '17:45' },
-  { providerId: 'P002', date: '2026-04-17', totalVisits: 3, distanceTravelled: 54, salesAmount: 6500, farmersContacted: 4, devicesInstalled: 3, checkInTime: '09:00', checkOutTime: '18:00' },
-];
-
-const SEED_ALERTS: TrackingAlert[] = [
-  { id: 'AL001', providerId: 'P003', type: 'NO_CHECKIN', message: 'No check-in recorded today (April 18)', severity: 'HIGH', timestamp: '2026-04-18T10:00:00', resolved: false },
-  { id: 'AL002', providerId: 'P003', type: 'NO_ACTIVITY', message: 'No field visits logged in last 48 hours', severity: 'HIGH', timestamp: '2026-04-18T08:00:00', resolved: false },
-  { id: 'AL003', providerId: 'P002', type: 'LATE', message: 'Check-in delayed by 70 minutes (expected 08:00)', severity: 'MEDIUM', timestamp: '2026-04-18T09:10:00', resolved: false },
-  { id: 'AL004', providerId: 'P001', type: 'OUTSIDE_AREA', message: 'Activity logged 35 km outside assigned territory', severity: 'MEDIUM', timestamp: '2026-04-17T14:30:00', resolved: true },
-];
-
-const FARMER_INTERACTIONS = [
-  { providerId: 'P001', farmerName: 'Govind Rao', interactions: 8, lastContact: '2026-04-18', strength: 92, stage: 'Customer' },
-  { providerId: 'P001', farmerName: 'Krishnamurthy', interactions: 5, lastContact: '2026-04-18', strength: 78, stage: 'Active Lead' },
-  { providerId: 'P001', farmerName: 'Venkataiah', interactions: 3, lastContact: '2026-04-15', strength: 55, stage: 'Prospect' },
-  { providerId: 'P002', farmerName: 'Venkatesh Naidu', interactions: 6, lastContact: '2026-04-18', strength: 85, stage: 'Customer' },
-  { providerId: 'P002', farmerName: 'Raju Babu', interactions: 4, lastContact: '2026-04-17', strength: 70, stage: 'Active Lead' },
-  { providerId: 'P003', farmerName: 'Suryanarayana', interactions: 2, lastContact: '2026-04-17', strength: 40, stage: 'Prospect' },
-];
-
-// ─── Helper: mini provider name list ────────────────────────────────────────
-const MOCK_PROV_NAMES: Record<string, string> = {
-  P001: 'Ravi Aqua Services', P002: 'Priya Field Tech', P003: 'Suresh IoT Solutions',
-};
+// ─── Helper: provider name lookup ────────────────────────────────────────────
 const provNameById = (id: string, providers: { id: string; name: string }[]) =>
-  providers.find(p => p.id === id)?.name ?? MOCK_PROV_NAMES[id] ?? id;
+  providers.find(p => p.id === id)?.name ?? id;
 
 const purposeColor: Record<ProviderFieldVisit['purpose'], string> = {
   SALES: 'bg-emerald-500/10 text-emerald-400',
@@ -247,7 +191,17 @@ const ProviderRegistry = () => {
 
   // ── Field Tracking State ─────────────────────────────────────────────────
   const [trackingTab, setTrackingTab] = useState<'overview' | 'checkin' | 'visits' | 'tasks' | 'alerts' | 'geo' | 'farmers' | 'reports' | 'integration'>('overview');
-  const [trackingAlerts, setTrackingAlerts] = useState<TrackingAlert[]>(SEED_ALERTS);
+  const [trackingAlerts, setTrackingAlerts] = useState<TrackingAlert[]>([]);
+  const [checkins, setCheckins] = useState<CheckInRecord[]>([]);
+  const [fieldVisits, setFieldVisits] = useState<ProviderFieldVisit[]>([]);
+  const [providerTasks, setProviderTasks] = useState<ProviderTask[]>([]);
+  const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
+  const [farmerInteractions, setFarmerInteractions] = useState<{
+    providerId: string; farmerName: string; farmName: string; date: string;
+    type: string; notes: string; outcome: string; lastContact?: string;
+    strength?: number; interactions?: number; stage?: string;
+  }[]>([]);
+  const [providerAreas, setProviderAreas] = useState<ProviderArea[]>([]);
   const [selectedTrackProvider, setSelectedTrackProvider] = useState<string>('ALL');
 
   const [newProv, setNewProv] = useState({
@@ -329,23 +283,24 @@ const ProviderRegistry = () => {
   ];
 
   // ── Field Tracking helpers ────────────────────────────────────────────────
-  const filteredCheckins = useMemo(() => SEED_CHECKINS.filter(c => selectedTrackProvider === 'ALL' || c.providerId === selectedTrackProvider), [selectedTrackProvider]);
-  const filteredVisits = useMemo(() => SEED_FIELD_VISITS.filter(v => selectedTrackProvider === 'ALL' || v.providerId === selectedTrackProvider), [selectedTrackProvider]);
-  const filteredTasks = useMemo(() => SEED_PROVIDER_TASKS.filter(t => selectedTrackProvider === 'ALL' || t.providerId === selectedTrackProvider), [selectedTrackProvider]);
-  const filteredReports = useMemo(() => SEED_DAILY_REPORTS.filter(r => selectedTrackProvider === 'ALL' || r.providerId === selectedTrackProvider), [selectedTrackProvider]);
-  const filteredInteractions = useMemo(() => FARMER_INTERACTIONS.filter(fi => selectedTrackProvider === 'ALL' || fi.providerId === selectedTrackProvider), [selectedTrackProvider]);
+  const filteredCheckins = useMemo(() => checkins.filter(c => selectedTrackProvider === 'ALL' || c.providerId === selectedTrackProvider), [checkins, selectedTrackProvider]);
+  const filteredVisits = useMemo(() => fieldVisits.filter(v => selectedTrackProvider === 'ALL' || v.providerId === selectedTrackProvider), [fieldVisits, selectedTrackProvider]);
+  const filteredTasks = useMemo(() => providerTasks.filter(t => selectedTrackProvider === 'ALL' || t.providerId === selectedTrackProvider), [providerTasks, selectedTrackProvider]);
+  const filteredReports = useMemo(() => dailyReports.filter(r => selectedTrackProvider === 'ALL' || r.providerId === selectedTrackProvider), [dailyReports, selectedTrackProvider]);
+  const filteredInteractions = useMemo(() => farmerInteractions.filter(fi => selectedTrackProvider === 'ALL' || fi.providerId === selectedTrackProvider), [farmerInteractions, selectedTrackProvider]);
   const filteredAlerts = useMemo(() => trackingAlerts.filter(a => selectedTrackProvider === 'ALL' || a.providerId === selectedTrackProvider), [trackingAlerts, selectedTrackProvider]);
 
   const resolveAlert = (id: string) => setTrackingAlerts(prev => prev.map(a => a.id === id ? { ...a, resolved: true } : a));
 
-  const trackProviders = ['P001','P002','P003'];
+  const todayStr = new Date().toISOString().split('T')[0];
+  const trackProviders = providers.map(p => p.id);
   const trackStats = {
-    activeToday: SEED_CHECKINS.filter(c => c.date === '2026-04-18' && c.status !== 'MISSED').length,
-    missedToday: SEED_CHECKINS.filter(c => c.date === '2026-04-18' && c.status === 'MISSED').length,
-    visitsToday: SEED_FIELD_VISITS.filter(v => v.visitDate === '2026-04-18').length,
-    kmToday: SEED_CHECKINS.filter(c => c.date === '2026-04-18').reduce((s, c) => s + c.distanceCovered, 0),
-    openAlerts: SEED_ALERTS.filter(a => !a.resolved).length,
-    tasksOverdue: SEED_PROVIDER_TASKS.filter(t => t.status === 'OVERDUE').length,
+    activeToday: checkins.filter(c => c.date === todayStr && c.status !== 'MISSED').length,
+    missedToday: checkins.filter(c => c.date === todayStr && c.status === 'MISSED').length,
+    visitsToday: fieldVisits.filter(v => v.visitDate === todayStr).length,
+    kmToday: checkins.filter(c => c.date === todayStr).reduce((s, c) => s + c.distanceCovered, 0),
+    openAlerts: trackingAlerts.filter(a => !a.resolved).length,
+    tasksOverdue: providerTasks.filter(t => t.status === 'OVERDUE').length,
   };
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -810,11 +765,17 @@ const ProviderRegistry = () => {
           {/* ── Overview ───────────────────────────────────────────────────── */}
           {trackingTab === 'overview' && (
             <div className="space-y-5">
-              {trackProviders.map(pid => {
-                const todayCheckin = SEED_CHECKINS.find(c => c.providerId === pid && c.date === '2026-04-18');
-                const todayVisits = SEED_FIELD_VISITS.filter(v => v.providerId === pid && v.visitDate === '2026-04-18');
-                const activeTasks = SEED_PROVIDER_TASKS.filter(t => t.providerId === pid && t.status !== 'COMPLETED');
-                const area = SEED_AREAS.find(a => a.providerId === pid);
+              {trackProviders.length === 0 ? (
+                <div className="glass-panel p-12 text-center text-zinc-500">
+                  <Navigation2 size={40} className="mx-auto mb-3 opacity-30" />
+                  <p className="font-medium">No providers registered yet.</p>
+                  <p className="text-xs mt-1">Add providers to see field tracking overview.</p>
+                </div>
+              ) : trackProviders.map(pid => {
+                const todayCheckin = checkins.find(c => c.providerId === pid && c.date === todayStr);
+                const todayVisits = fieldVisits.filter(v => v.providerId === pid && v.visitDate === todayStr);
+                const activeTasks = providerTasks.filter(t => t.providerId === pid && t.status !== 'COMPLETED');
+                const area = providerAreas.find(a => a.providerId === pid);
                 const pName = provNameById(pid, providers);
                 const statusColor = todayCheckin?.status === 'ACTIVE' ? 'border-emerald-500/20 bg-emerald-500/5' : todayCheckin?.status === 'DONE' ? 'border-blue-500/20 bg-blue-500/5' : 'border-red-500/20 bg-red-500/5';
                 return (
@@ -1115,7 +1076,13 @@ const ProviderRegistry = () => {
                 <p className="text-xs text-zinc-400">Each provider is locked to a specific geographic zone. Alerts are triggered when activity is detected outside the defined radius.</p>
               </div>
               <div className="space-y-4">
-                {SEED_AREAS.map((area, i) => (
+                {providerAreas.length === 0 ? (
+                  <div className="glass-panel p-10 text-center text-zinc-500">
+                    <Hexagon size={36} className="mx-auto mb-3 opacity-30 text-purple-400" />
+                    <p className="font-medium">No geo-fence territories configured yet.</p>
+                    <p className="text-xs mt-1">Provider territories will appear here once configured.</p>
+                  </div>
+                ) : providerAreas.map((area, i) => (
                   <div key={area.id} className="glass-panel p-6">
                     <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
                       <div>
