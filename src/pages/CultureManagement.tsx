@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CultureManagement.tsx
  * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * Manages aqua culture cycles for farmers.
@@ -34,6 +34,7 @@ interface Farmer {
   name: string;
   phoneNumber: string;
   village?: string;
+  source?: 'app' | 'shop'; // 'app' = AquaGrow mobile, 'shop' = Shop ERP
 }
 
 interface Culture {
@@ -157,8 +158,13 @@ const StartCultureModal = ({
     Promise.all([
       apiFetch<Farmer[]>('/farmers'),
       apiFetch<Culture[]>('/cultures'),
-    ]).then(([f, c]) => {
-      setFarmers(f);
+      apiFetch<Farmer[]>('/shop/farmers').catch(() => [] as Farmer[]),
+    ]).then(([appFarmers, c, shopFarmers]) => {
+      const tagged: Farmer[] = [
+        ...appFarmers.map(f => ({ ...f, source: 'app' as const })),
+        ...(shopFarmers as Farmer[]).map(f => ({ ...f, source: 'shop' as const })),
+      ];
+      setFarmers(tagged);
       setCultures(c);
     }).catch(() => {}).finally(() => setFL(false));
   }, []);
@@ -257,7 +263,12 @@ const StartCultureModal = ({
                       <button key={f._id} type="button" onClick={() => pickFarmer(f)}
                         className="w-full text-left px-4 py-2.5 hover:bg-white/8 text-sm flex justify-between items-center gap-2">
                         <span className="text-white font-medium">{f.name}</span>
-                        <span className="text-zinc-500 text-xs shrink-0">{f.phoneNumber}</span>
+                        <span className="flex items-center gap-2 shrink-0">
+                          {f.source === 'shop' && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">Shop ERP</span>
+                          )}
+                          <span className="text-zinc-500 text-xs">{f.phoneNumber}</span>
+                        </span>
                       </button>
                     ))}
                   </div>

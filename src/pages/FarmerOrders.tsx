@@ -192,7 +192,7 @@ const CreateOrderModal = ({
   useEffect(() => {
     const t = setTimeout(async () => {
       try {
-        const res = await apiFetch<Farmer[]>(`/farmers${farmerSearch ? '?q=' + encodeURIComponent(farmerSearch) : ''}`);
+        const res = await apiFetch<Farmer[]>(`/shop/farmers${farmerSearch ? '?q=' + encodeURIComponent(farmerSearch) : ''}`);
         setFarmers(res);
       } catch { /* silent */ }
     }, 300);

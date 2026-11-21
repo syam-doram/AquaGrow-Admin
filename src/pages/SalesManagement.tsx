@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SalesManagement.tsx
  * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * Sales & Billing page for AquaGrow Shop ERP admin panel.
@@ -1364,7 +1364,7 @@ const SalesManagement: React.FC = () => {
     setBootstrapLoading(true); setBootstrapErr(null);
     try {
       const [fs, ps] = await Promise.all([
-        apiFetch<Farmer[]>('/farmers'),
+        apiFetch<Farmer[]>('/shop/farmers'),
         apiFetch<Product[]>('/products'),
       ]);
       setFarmers(fs);

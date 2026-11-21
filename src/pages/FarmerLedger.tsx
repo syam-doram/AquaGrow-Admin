@@ -5,7 +5,7 @@
  * and credit history.
  *
  * Endpoints (backend field names confirmed from routes/ledger.ts):
- *   GET /farmers               → list farmers
+ *   GET /shop/farmers      → list Shop ERP farmers
  *   GET /ledger?farmerId=&from=&to=  → {ledger[], totalDebit, totalCredit, outstanding}
  *
  * Ledger row fields: { type, date, description, debit, credit, balance, ... }
@@ -67,9 +67,7 @@ async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
 }
 
 const fetchFarmers = (): Promise<Farmer[]> =>
-  apiFetch<Farmer[]>('/farmers').catch(() =>
-    apiFetch<{ farmers: Farmer[] }>('/admin/farmers').then(r => r.farmers ?? (r as any))
-  );
+  apiFetch<Farmer[]>('/shop/farmers').catch(() => []);
 
 const fetchLedger = (farmerId: string, from?: string, to?: string): Promise<LedgerResponse> => {
   const params = new URLSearchParams({ farmerId });
