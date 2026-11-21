@@ -67,7 +67,7 @@ interface ActivityLog {
 
 // ─── Module Definitions ───────────────────────────────────────────────────────
 
-const MODULES: { id: ModuleId; label: string; icon: React.FC<{ size?: number }> }[] = [
+const MODULES: { id: ModuleId; label: string; icon: React.FC<{ size?: number; className?: string }> }[] = [
   { id: 'dashboard',     label: 'Dashboard',         icon: BarChart3   },
   { id: 'farmers',       label: 'Farmers',            icon: Users       },
   { id: 'orders',        label: 'Orders',             icon: Package     },
@@ -814,7 +814,7 @@ const RBACManagement: React.FC = () => {
                         <div className="flex items-center gap-2 mb-0.5">
                           <p className="text-sm font-bold text-zinc-100">{u.name}</p>
                           <StatusDot status={u.status} />
-                          {u.twoFA && <Shield size={11} className="text-emerald-400" title="2FA Enabled" />}
+                          {u.twoFA && <span title="2FA Enabled"><Shield size={11} className="text-emerald-400" /></span>}
                         </div>
                         <p className="text-[10px] text-zinc-500">{u.email}</p>
                       </div>
