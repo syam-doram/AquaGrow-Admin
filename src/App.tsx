@@ -41,6 +41,15 @@ import FarmerLedger from './pages/FarmerLedger';
 import HarvestDraftReview from './pages/HarvestDraftReview';
 import FarmerManagement from './pages/FarmerManagement';
 import WholesaleOrders from './pages/WholesaleOrders';
+// ── Phase 2 ERP Pages ─────────────────────────────────────────────────────────
+import SalesManagement from './pages/SalesManagement';
+import SalesCalendar from './pages/SalesCalendar';
+import SupplierManagement from './pages/SupplierManagement';
+import CultureManagement from './pages/CultureManagement';
+import ShopDashboard from './pages/ShopDashboard';
+import ReportsPage from './pages/ReportsPage';
+import WhatsAppManagement from './pages/WhatsAppManagement';
+import FarmerOrders from './pages/FarmerOrders';
 
 // ─── Route Guards ─────────────────────────────────────────────────────────────
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -120,6 +129,24 @@ const App = () => {
           element={<RoleRoute roles={ERP_ROLES}><Layout><FarmerManagement /></Layout></RoleRoute>} />
         <Route path="/wholesale-orders"
           element={<RoleRoute roles={ERP_ROLES}><Layout><WholesaleOrders /></Layout></RoleRoute>} />
+
+        {/* ── Phase 2 ERP Pages ─────────────────────────────────── */}
+        <Route path="/shop-dashboard"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><ShopDashboard /></Layout></RoleRoute>} />
+        <Route path="/sales"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><SalesManagement /></Layout></RoleRoute>} />
+        <Route path="/sales-calendar"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><SalesCalendar /></Layout></RoleRoute>} />
+        <Route path="/suppliers"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><SupplierManagement /></Layout></RoleRoute>} />
+        <Route path="/cultures"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><CultureManagement /></Layout></RoleRoute>} />
+        <Route path="/reports"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><ReportsPage /></Layout></RoleRoute>} />
+        <Route path="/whatsapp"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><WhatsAppManagement /></Layout></RoleRoute>} />
+        <Route path="/shop-orders"
+          element={<RoleRoute roles={ERP_ROLES}><Layout><FarmerOrders /></Layout></RoleRoute>} />
 
         {/* ── Farmers: operations + hr ─────────────────────────── */}
         <Route path="/harvests"
