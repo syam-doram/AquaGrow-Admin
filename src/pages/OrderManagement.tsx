@@ -46,10 +46,14 @@ const PAY_COLOR: Record<PayStatus, string> = {
 const CAT_COLOR: Record<ProductCategory, string> = {
   Feed:       'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
   Medicine:   'text-red-400 bg-red-500/10 border-red-500/20',
+  Minerals:   'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
+  Mineral:    'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
   Aerator:    'text-blue-400 bg-blue-500/10 border-blue-500/20',
   'IoT Device':'text-purple-400 bg-purple-500/10 border-purple-500/20',
   Equipment:  'text-orange-400 bg-orange-500/10 border-orange-500/20',
   Chemical:   'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
+  Packaging:  'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+  Other:      'text-zinc-400 bg-zinc-500/10 border-zinc-500/20',
 };
 
 const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`;
