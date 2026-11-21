@@ -1,7 +1,7 @@
-/**
+﻿/**
  * WhatsAppManagement.tsx
- * ─────────────────────────────────────────────────────────────────────────────
- * Admin page: manage WhatsApp Business integration — messages, templates,
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * Admin page: manage WhatsApp Business integration â€” messages, templates,
  * and alert settings for the AquaGrow Shop.
  *
  * Endpoints:
@@ -12,7 +12,7 @@
  *   GET  /api/whatsapp/alert-settings
  *   PUT  /api/whatsapp/alert-settings
  *   GET  /api/whatsapp/stats
- * ─────────────────────────────────────────────────────────────────────────────
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -24,7 +24,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { BASE_URL, getAdminToken } from '../services/aquagrowApi';
 
-// ─── API ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const token = getAdminToken();
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -40,7 +40,7 @@ async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
   return json as T;
 }
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type MsgStatus = 'pending' | 'sent' | 'delivered' | 'failed';
 type TemplateType = 'invoice' | 'expiry_alert' | 'custom';
 type ActiveTab = 'messages' | 'templates' | 'alerts';
@@ -97,13 +97,13 @@ interface WAConfigure {
   status?: string;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const fmtDate = (s?: string) =>
-  s ? new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  s ? new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'â€”';
 const fmtDateTime = (s?: string) =>
-  s ? new Date(s).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+  s ? new Date(s).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'â€”';
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Status Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MSG_STATUS_META: Record<MsgStatus, { label: string; color: string; icon: React.ReactNode }> = {
   pending:   { label: 'Pending',   color: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30',     icon: <Clock size={10} /> },
   sent:      { label: 'Sent',      color: 'bg-blue-500/15 text-blue-400 border-blue-500/30',     icon: <Send size={10} /> },
@@ -135,10 +135,10 @@ const TmplTypeBadge = ({ type }: { type: TemplateType }) => {
   );
 };
 
-// ─── Spinner ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Spinner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const Spinner = () => <Loader2 size={15} className="animate-spin" />;
 
-// ─── Toggle ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const Toggle = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
   <button
     type="button"
@@ -150,7 +150,7 @@ const Toggle = ({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   </button>
 );
 
-// ─── Message Detail Modal ─────────────────────────────────────────────────────
+// â”€â”€â”€ Message Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MessageDetailModal = ({ msg, onClose }: { msg: WAMessage; onClose: () => void }) => (
   <AnimatePresence>
     <motion.div
@@ -211,7 +211,7 @@ const MessageDetailModal = ({ msg, onClose }: { msg: WAMessage; onClose: () => v
   </AnimatePresence>
 );
 
-// ─── Add Template Modal ───────────────────────────────────────────────────────
+// â”€â”€â”€ Add Template Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface TemplateFormState {
   name: string;
   type: TemplateType;
@@ -235,7 +235,7 @@ const AddTemplateModal = ({
     setSaving(true);
     setError('');
     try {
-      await apiFetch('/api/whatsapp/templates', {
+      await apiFetch('/whatsapp/templates', {
         method: 'POST',
         body: JSON.stringify(form),
       });
@@ -310,7 +310,7 @@ const AddTemplateModal = ({
                 rows={5}
                 value={form.body}
                 onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-                placeholder="Dear {{farmerName}}, your invoice {{invoiceNo}} of ₹{{amount}} is ready."
+                placeholder="Dear {{farmerName}}, your invoice {{invoiceNo}} of â‚¹{{amount}} is ready."
                 className="w-full bg-zinc-800/60 border border-white/8 rounded-xl px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500/50 resize-none font-mono"
               />
             </div>
@@ -353,7 +353,7 @@ const AddTemplateModal = ({
   );
 };
 
-// ─── Tab: Messages ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Tab: Messages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MessagesTab = () => {
   const [messages, setMessages] = useState<WAMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -392,7 +392,7 @@ const MessagesTab = () => {
       await apiFetch(`/api/whatsapp/retry/${id}`, { method: 'POST' });
       load();
     } catch {
-      // silent — visual feedback via reload
+      // silent â€” visual feedback via reload
     } finally {
       setRetryingId(null);
     }
@@ -408,7 +408,7 @@ const MessagesTab = () => {
             type="text"
             value={farmerSearch}
             onChange={e => setFarmerSearch(e.target.value)}
-            placeholder="Farmer name / ID…"
+            placeholder="Farmer name / IDâ€¦"
             className="w-full bg-zinc-800/50 border border-white/8 rounded-xl pl-8 pr-3 py-2 text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-blue-500/40"
           />
         </div>
@@ -461,7 +461,7 @@ const MessagesTab = () => {
 
         {loading && (
           <div className="p-10 flex items-center justify-center gap-2 text-zinc-500 text-sm">
-            <Spinner /> Loading messages…
+            <Spinner /> Loading messagesâ€¦
           </div>
         )}
 
@@ -532,7 +532,7 @@ const MessagesTab = () => {
   );
 };
 
-// ─── Tab: Templates ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Tab: Templates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TemplatesTab = () => {
   const [templates, setTemplates] = useState<WATemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -543,7 +543,7 @@ const TemplatesTab = () => {
     setLoading(true);
     setError('');
     try {
-      const data = await apiFetch<WATemplate[]>('/api/whatsapp/templates');
+      const data = await apiFetch<WATemplate[]>('/whatsapp/templates');
       setTemplates(Array.isArray(data) ? data : []);
     } catch (e: any) {
       setError(e.message || 'Failed to load templates');
@@ -576,7 +576,7 @@ const TemplatesTab = () => {
 
         {loading && (
           <div className="p-10 flex items-center justify-center gap-2 text-zinc-500 text-sm">
-            <Spinner /> Loading templates…
+            <Spinner /> Loading templatesâ€¦
           </div>
         )}
 
@@ -638,7 +638,7 @@ const TemplatesTab = () => {
   );
 };
 
-// ─── Tab: Alert Settings ──────────────────────────────────────────────────────
+// â”€â”€â”€ Tab: Alert Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const AlertSettingsTab = ({ templates }: { templates: WATemplate[] }) => {
   const defaultSettings: AlertSettings = {
     expiryAlerts: { enabled: false, days: { d30: false, d15: false, d7: false }, sendTime: '09:00' },
@@ -657,7 +657,7 @@ const AlertSettingsTab = ({ templates }: { templates: WATemplate[] }) => {
       setLoading(true);
       setError('');
       try {
-        const data = await apiFetch<AlertSettings>('/api/whatsapp/alert-settings');
+        const data = await apiFetch<AlertSettings>('/whatsapp/alert-settings');
         setSettings(data);
       } catch (e: any) {
         setError(e.message || 'Failed to load settings');
@@ -672,7 +672,7 @@ const AlertSettingsTab = ({ templates }: { templates: WATemplate[] }) => {
     setError('');
     setSaved(false);
     try {
-      await apiFetch('/api/whatsapp/alert-settings', {
+      await apiFetch('/whatsapp/alert-settings', {
         method: 'PUT',
         body: JSON.stringify(settings),
       });
@@ -688,7 +688,7 @@ const AlertSettingsTab = ({ templates }: { templates: WATemplate[] }) => {
   if (loading) {
     return (
       <div className="p-10 flex items-center justify-center gap-2 text-zinc-500 text-sm">
-        <Spinner /> Loading settings…
+        <Spinner /> Loading settingsâ€¦
       </div>
     );
   }
@@ -782,7 +782,7 @@ const AlertSettingsTab = ({ templates }: { templates: WATemplate[] }) => {
                 onChange={e => setSettings(s => ({ ...s, invoiceAlerts: { ...s.invoiceAlerts, templateId: e.target.value } }))}
                 className={`${inputCls} w-full appearance-none pr-8`}
               >
-                <option value="">— Select template —</option>
+                <option value="">â€” Select template â€”</option>
                 {templates.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
               </select>
               <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
@@ -825,7 +825,7 @@ const AlertSettingsTab = ({ templates }: { templates: WATemplate[] }) => {
                 onChange={e => setSettings(s => ({ ...s, creditReminders: { ...s.creditReminders, templateId: e.target.value } }))}
                 className={`${inputCls} w-full appearance-none pr-8`}
               >
-                <option value="">— Select template —</option>
+                <option value="">â€” Select template â€”</option>
                 {templates.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
               </select>
               <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
@@ -857,7 +857,7 @@ const AlertSettingsTab = ({ templates }: { templates: WATemplate[] }) => {
   );
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const WhatsAppManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('messages');
   const [config, setConfig] = useState<WAConfigure | null>(null);
@@ -869,9 +869,9 @@ const WhatsAppManagement: React.FC = () => {
     const loadAll = async () => {
       try {
         const [cfg, st, tmpl] = await Promise.allSettled([
-          apiFetch<WAConfigure>('/api/whatsapp/config'),
-          apiFetch<WAStats>('/api/whatsapp/stats'),
-          apiFetch<WATemplate[]>('/api/whatsapp/templates'),
+          apiFetch<WAConfigure>('/whatsapp/config'),
+          apiFetch<WAStats>('/whatsapp/stats'),
+          apiFetch<WATemplate[]>('/whatsapp/templates'),
         ]);
         if (cfg.status === 'fulfilled') setConfig(cfg.value);
         if (st.status === 'fulfilled') setStats(st.value);
@@ -919,7 +919,7 @@ const WhatsAppManagement: React.FC = () => {
               <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
               <span>
                 WhatsApp Business API connected via <strong>{config.providerName}</strong>
-                {config.status && <> — <span className="font-semibold capitalize">{config.status}</span></>}
+                {config.status && <> â€” <span className="font-semibold capitalize">{config.status}</span></>}
               </span>
             </>
           ) : (

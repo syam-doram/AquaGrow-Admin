@@ -1,19 +1,19 @@
-/**
+﻿/**
  * CultureManagement.tsx
- * ─────────────────────────────────────────────────────────────────────────────
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * Manages aqua culture cycles for farmers.
  * Each farmer can run multiple culture cycles sequentially (never overlapping).
  *
  * Endpoints:
- *   GET  /api/cultures                         → list all cultures
- *   POST /api/cultures                         → start new culture
- *   PUT  /api/cultures/:id/close               → close a culture
- *   GET  /api/cultures/:id/sales               → sales for a culture
- *   GET  /api/cultures/:id/payments            → payments for a culture
- *   GET  /api/farmers                          → farmer list
- *   GET  /api/sales/invoices?culture=unassigned → unassigned sales
- *   PUT  /api/sales/invoices/:id/assign-culture → assign sale to culture
- * ─────────────────────────────────────────────────────────────────────────────
+ *   GET  /api/cultures                         â†’ list all cultures
+ *   POST /api/cultures                         â†’ start new culture
+ *   PUT  /api/cultures/:id/close               â†’ close a culture
+ *   GET  /api/cultures/:id/sales               â†’ sales for a culture
+ *   GET  /api/cultures/:id/payments            â†’ payments for a culture
+ *   GET  /api/farmers                          â†’ farmer list
+ *   GET  /api/sales/invoices?culture=unassigned â†’ unassigned sales
+ *   PUT  /api/sales/invoices/:id/assign-culture â†’ assign sale to culture
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -25,7 +25,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { BASE_URL, getAdminToken } from '../services/aquagrowApi';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type CultureStatus = 'active' | 'closed';
 type FilterTab = 'all' | 'active' | 'closed';
 
@@ -92,7 +92,7 @@ interface UnassignedSale {
   items: SaleItem[];
 }
 
-// ─── API ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const token = getAdminToken();
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -108,15 +108,15 @@ async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
   return json as T;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-const fmtRs   = (n?: number) => n != null ? `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—';
-const fmtDate = (s?: string) => s ? new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const fmtRs   = (n?: number) => n != null ? `â‚¹${n.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : 'â€”';
+const fmtDate = (s?: string) => s ? new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'â€”';
 const today   = () => new Date().toISOString().slice(0, 10);
 
-// ─── Spinner ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Spinner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const Spinner = () => <Loader2 size={15} className="animate-spin" />;
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Status Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const StatusBadge = ({ status }: { status: CultureStatus }) => (
   <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border ${
     status === 'active'
@@ -128,11 +128,11 @@ const StatusBadge = ({ status }: { status: CultureStatus }) => (
   </span>
 );
 
-// ─── Input / Label classes ────────────────────────────────────────────────────
+// â”€â”€â”€ Input / Label classes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const iCls = 'w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-100 outline-none focus:border-emerald-500/60 transition-all placeholder:text-zinc-600';
 const lCls = 'block text-[10px] text-zinc-500 uppercase font-bold mb-1.5 tracking-wider';
 
-// ─── StartCultureModal ────────────────────────────────────────────────────────
+// â”€â”€â”€ StartCultureModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const StartCultureModal = ({
   onClose,
   onSaved,
@@ -155,8 +155,8 @@ const StartCultureModal = ({
   useEffect(() => {
     setFL(true);
     Promise.all([
-      apiFetch<Farmer[]>('/api/farmers').catch(() => apiFetch<Farmer[]>('/farmers')),
-      apiFetch<Culture[]>('/api/cultures').catch(() => apiFetch<Culture[]>('/cultures')),
+      apiFetch<Farmer[]>('/farmers'),
+      apiFetch<Culture[]>('/cultures'),
     ]).then(([f, c]) => {
       setFarmers(f);
       setCultures(c);
@@ -247,7 +247,7 @@ const StartCultureModal = ({
                   value={farmerSearch}
                   onChange={e => { setFarmerSearch(e.target.value); setShowFarmerDrop(true); setSelectedFarmer(null); setHasActiveCulture(false); }}
                   onFocus={() => setShowFarmerDrop(true)}
-                  placeholder={farmersLoading ? 'Loading farmers…' : 'Search farmer name or phone…'}
+                  placeholder={farmersLoading ? 'Loading farmersâ€¦' : 'Search farmer name or phoneâ€¦'}
                   disabled={farmersLoading}
                   className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-emerald-500/60 transition placeholder:text-zinc-600 disabled:opacity-50"
                 />
@@ -277,7 +277,7 @@ const StartCultureModal = ({
             <div>
               <label className={lCls}>Notes (optional)</label>
               <textarea value={notes} onChange={e => setNotes(e.target.value)}
-                placeholder="Any notes about this culture cycle…"
+                placeholder="Any notes about this culture cycleâ€¦"
                 rows={3}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-100 outline-none focus:border-emerald-500/60 transition-all placeholder:text-zinc-600 resize-none" />
             </div>
@@ -297,7 +297,7 @@ const StartCultureModal = ({
   );
 };
 
-// ─── CloseCultureModal ────────────────────────────────────────────────────────
+// â”€â”€â”€ CloseCultureModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const CloseCultureModal = ({
   culture,
   onClose,
@@ -396,7 +396,7 @@ const CloseCultureModal = ({
               <div>
                 <label className={lCls}>Closing Notes (optional)</label>
                 <textarea value={notes} onChange={e => setNotes(e.target.value)}
-                  placeholder="Any remarks about closing this cycle…"
+                  placeholder="Any remarks about closing this cycleâ€¦"
                   rows={3}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-100 outline-none focus:border-emerald-500/60 transition-all placeholder:text-zinc-600 resize-none" />
               </div>
@@ -416,7 +416,7 @@ const CloseCultureModal = ({
   );
 };
 
-// ─── CultureDetailModal ───────────────────────────────────────────────────────
+// â”€â”€â”€ CultureDetailModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type DetailTab = 'sales' | 'payments';
 
 const CultureDetailModal = ({
@@ -474,8 +474,8 @@ const CultureDetailModal = ({
                 <StatusBadge status={culture.status} />
               </div>
               <p className="text-xs text-zinc-500 mt-0.5">
-                {culture.farmerName} · {culture.farmerPhone} · {fmtDate(culture.startDate)}
-                {culture.endDate ? ` → ${fmtDate(culture.endDate)}` : ''}
+                {culture.farmerName} Â· {culture.farmerPhone} Â· {fmtDate(culture.startDate)}
+                {culture.endDate ? ` â†’ ${fmtDate(culture.endDate)}` : ''}
               </p>
             </div>
             <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/5 text-zinc-400"><X size={18} /></button>
@@ -521,7 +521,7 @@ const CultureDetailModal = ({
             {loading && (
               <div className="p-10 flex flex-col items-center gap-3">
                 <div className="w-6 h-6 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-                <p className="text-zinc-500 text-xs">Loading…</p>
+                <p className="text-zinc-500 text-xs">Loadingâ€¦</p>
               </div>
             )}
             {!loading && error && (
@@ -537,7 +537,7 @@ const CultureDetailModal = ({
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-white/8">
-                      {['Invoice #', 'Date', 'Products', 'Total ₹', 'Method', 'Status'].map(h => (
+                      {['Invoice #', 'Date', 'Products', 'Total â‚¹', 'Method', 'Status'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-[9px] text-zinc-500 uppercase tracking-wider font-bold">{h}</th>
                       ))}
                     </tr>
@@ -552,7 +552,7 @@ const CultureDetailModal = ({
                         <td className="px-4 py-3 text-zinc-400">{fmtDate(s.date)}</td>
                         <td className="px-4 py-3 text-zinc-400">{s.items.map(i => i.productName).join(', ')}</td>
                         <td className="px-4 py-3 font-bold text-zinc-200">{fmtRs(s.totalAmount)}</td>
-                        <td className="px-4 py-3 text-zinc-400">{s.paymentMethod ?? '—'}</td>
+                        <td className="px-4 py-3 text-zinc-400">{s.paymentMethod ?? 'â€”'}</td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold border ${
                             s.status === 'paid'
@@ -560,7 +560,7 @@ const CultureDetailModal = ({
                               : s.status === 'partial'
                               ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
                               : 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30'
-                          }`}>{s.status ?? '—'}</span>
+                          }`}>{s.status ?? 'â€”'}</span>
                         </td>
                       </tr>
                     ))}
@@ -587,7 +587,7 @@ const CultureDetailModal = ({
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-white/8">
-                    {['Date', 'Method', 'Amount ₹', 'Reference'].map(h => (
+                    {['Date', 'Method', 'Amount â‚¹', 'Reference'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-[9px] text-zinc-500 uppercase tracking-wider font-bold">{h}</th>
                     ))}
                   </tr>
@@ -601,7 +601,7 @@ const CultureDetailModal = ({
                       <td className="px-4 py-3 text-zinc-400">{fmtDate(p.date)}</td>
                       <td className="px-4 py-3 text-zinc-300 font-semibold">{p.method}</td>
                       <td className="px-4 py-3 font-bold text-emerald-400">{fmtRs(p.amount)}</td>
-                      <td className="px-4 py-3 text-zinc-500 font-mono">{p.reference ?? '—'}</td>
+                      <td className="px-4 py-3 text-zinc-500 font-mono">{p.reference ?? 'â€”'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -614,7 +614,7 @@ const CultureDetailModal = ({
   );
 };
 
-// ─── AssignCultureModal ────────────────────────────────────────────────────────
+// â”€â”€â”€ AssignCultureModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const AssignCultureModal = ({
   sale,
   cultures,
@@ -669,7 +669,7 @@ const AssignCultureModal = ({
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
             <div className="p-3 rounded-xl bg-white/3 border border-white/8 text-xs space-y-1">
               <p className="font-bold text-zinc-200">{sale.invoiceNumber}</p>
-              <p className="text-zinc-500">{sale.farmerName} · {fmtRs(sale.totalAmount)} · {fmtDate(sale.date)}</p>
+              <p className="text-zinc-500">{sale.farmerName} Â· {fmtRs(sale.totalAmount)} Â· {fmtDate(sale.date)}</p>
             </div>
 
             {error && (
@@ -686,10 +686,10 @@ const AssignCultureModal = ({
                 <div className="relative">
                   <select value={selectedCultureId} onChange={e => setSelectedCultureId(e.target.value)}
                     className={`${iCls} appearance-none`}>
-                    <option value="">— choose culture —</option>
+                    <option value="">â€” choose culture â€”</option>
                     {farmerCultures.map(c => (
                       <option key={c._id} value={c._id}>
-                        {c.cultureId} · {fmtDate(c.startDate)} ({c.status})
+                        {c.cultureId} Â· {fmtDate(c.startDate)} ({c.status})
                       </option>
                     ))}
                   </select>
@@ -713,7 +713,7 @@ const AssignCultureModal = ({
   );
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const CultureManagement: React.FC = () => {
   const [cultures, setCultures]       = useState<Culture[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -847,7 +847,7 @@ const CultureManagement: React.FC = () => {
           <div className="flex items-center gap-2 flex-1 min-w-[180px] bg-white/4 border border-white/8 rounded-xl px-3 py-2">
             <Search size={13} className="text-zinc-500 shrink-0" />
             <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search by culture ID, farmer name, phone…"
+              placeholder="Search by culture ID, farmer name, phoneâ€¦"
               className="bg-transparent text-sm text-zinc-100 outline-none flex-1 placeholder:text-zinc-600" />
           </div>
           <div className="flex items-center gap-1 p-1 bg-white/4 rounded-xl border border-white/8">
@@ -866,7 +866,7 @@ const CultureManagement: React.FC = () => {
         {loading && (
           <div className="p-12 flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-            <p className="text-zinc-500 text-sm">Loading cultures…</p>
+            <p className="text-zinc-500 text-sm">Loading culturesâ€¦</p>
           </div>
         )}
 
@@ -935,7 +935,7 @@ const CultureManagement: React.FC = () => {
                     <div className="flex gap-3 text-xs text-zinc-500">
                       <span>{c.farmerPhone}</span>
                       <span>{fmtDate(c.startDate)}</span>
-                      {c.endDate && <span>→ {fmtDate(c.endDate)}</span>}
+                      {c.endDate && <span>â†’ {fmtDate(c.endDate)}</span>}
                     </div>
                   </div>
 
@@ -1020,7 +1020,7 @@ const CultureManagement: React.FC = () => {
                     <p className="text-sm font-bold font-mono text-zinc-200">{s.invoiceNumber}</p>
                     <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 font-bold">Unassigned</span>
                   </div>
-                  <p className="text-xs text-zinc-500 mt-0.5">{s.farmerName} · {fmtDate(s.date)} · {fmtRs(s.totalAmount)}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">{s.farmerName} Â· {fmtDate(s.date)} Â· {fmtRs(s.totalAmount)}</p>
                 </div>
                 <button
                   onClick={() => setAssignSale(s)}

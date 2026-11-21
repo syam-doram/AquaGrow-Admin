@@ -1,6 +1,6 @@
-/**
+﻿/**
  * SalesManagement.tsx
- * ─────────────────────────────────────────────────────────────────────────────
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * Sales & Billing page for AquaGrow Shop ERP admin panel.
  *
  * Tabs: Bills | New Bill | Returns
@@ -15,8 +15,8 @@
  *   GET  /api/farmers
  *   GET  /api/products
  *
- * All amounts plain ₹.
- * ─────────────────────────────────────────────────────────────────────────────
+ * All amounts plain â‚¹.
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -29,11 +29,11 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { BASE_URL, getAdminToken } from '../services/aquagrowApi';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const fmtRs = (n?: number) =>
-  n != null ? `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—';
+  n != null ? `â‚¹${n.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : 'â€”';
 const fmtDate = (s?: string) =>
-  s ? new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  s ? new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'â€”';
 
 function uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -42,7 +42,7 @@ function uuid(): string {
   });
 }
 
-// ─── API ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const token = getAdminToken();
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -58,7 +58,7 @@ async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
   return json as T;
 }
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type InvoiceStatus = 'draft' | 'finalized' | 'paid' | 'cancelled';
 type PaymentMethod = 'Cash' | 'UPI' | 'Credit' | 'Mixed';
 
@@ -136,7 +136,7 @@ interface SaleReturn {
   reason?: string;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const INVOICE_STATUS_META: Record<InvoiceStatus, { label: string; color: string }> = {
   draft:     { label: 'Draft',     color: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30' },
   finalized: { label: 'Finalized', color: 'bg-blue-500/15 text-blue-400 border-blue-500/30' },
@@ -151,7 +151,7 @@ const PAYMENT_METHOD_ICONS: Record<PaymentMethod, React.ReactNode> = {
   Mixed:  <Layers size={12} />,
 };
 
-// ─── Shared sub-components ────────────────────────────────────────────────────
+// â”€â”€â”€ Shared sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const Spinner = () => <Loader2 size={15} className="animate-spin" />;
 
 const StatusBadge = ({ status }: { status: InvoiceStatus }) => {
@@ -166,7 +166,7 @@ const StatusBadge = ({ status }: { status: InvoiceStatus }) => {
 const iCls = 'w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-100 outline-none focus:border-emerald-500/60 transition-all placeholder:text-zinc-600';
 const lCls = 'block text-[10px] text-zinc-500 uppercase font-bold mb-1.5 tracking-wider';
 
-// ─── Farmer Search Dropdown ───────────────────────────────────────────────────
+// â”€â”€â”€ Farmer Search Dropdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const FarmerSearchDropdown = ({
   farmers,
   value,
@@ -199,7 +199,7 @@ const FarmerSearchDropdown = ({
         <div className="flex items-center justify-between bg-white/5 border border-emerald-500/40 rounded-xl px-4 py-2.5">
           <div>
             <p className="text-sm font-bold text-zinc-100">{value.name}</p>
-            <p className="text-[10px] text-zinc-500">{value.phoneNumber} {value.village ? `· ${value.village}` : ''}</p>
+            <p className="text-[10px] text-zinc-500">{value.phoneNumber} {value.village ? `Â· ${value.village}` : ''}</p>
           </div>
           <button type="button" onClick={() => { onChange(null); setQ(''); }}
             className="p-1 text-zinc-500 hover:text-red-400 transition">
@@ -214,7 +214,7 @@ const FarmerSearchDropdown = ({
               value={q}
               onChange={e => { setQ(e.target.value); setOpen(true); }}
               onFocus={() => setOpen(true)}
-              placeholder="Search farmer by name or phone…"
+              placeholder="Search farmer by name or phoneâ€¦"
               className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-emerald-500/60 transition placeholder:text-zinc-600"
             />
           </div>
@@ -226,7 +226,7 @@ const FarmerSearchDropdown = ({
                   className="w-full text-left px-4 py-2.5 hover:bg-white/8 text-sm flex justify-between items-center gap-2">
                   <div>
                     <p className="text-white font-medium">{f.name}</p>
-                    <p className="text-zinc-500 text-xs">{f.phoneNumber} {f.village ? `· ${f.village}` : ''}</p>
+                    <p className="text-zinc-500 text-xs">{f.phoneNumber} {f.village ? `Â· ${f.village}` : ''}</p>
                   </div>
                   {(f.totalCredit ?? 0) > 0 && (
                     <span className="text-amber-400 text-xs font-bold shrink-0">Cr {fmtRs(f.totalCredit)}</span>
@@ -241,7 +241,7 @@ const FarmerSearchDropdown = ({
   );
 };
 
-// ─── Bill Detail Modal ────────────────────────────────────────────────────────
+// â”€â”€â”€ Bill Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const BillDetailModal = ({
   invoice,
   onClose,
@@ -313,7 +313,7 @@ const BillDetailModal = ({
                 <h3 className="font-display font-bold text-lg">{invoice.invoiceNumber}</h3>
                 <StatusBadge status={invoice.status} />
               </div>
-              <p className="text-xs text-zinc-500 mt-0.5">{invoice.farmerName} · {fmtDate(invoice.date)}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">{invoice.farmerName} Â· {fmtDate(invoice.date)}</p>
             </div>
             <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/5 text-zinc-400 shrink-0"><X size={16} /></button>
           </div>
@@ -404,7 +404,7 @@ const BillDetailModal = ({
                             </span>
                           </td>
                           <td className="px-3 py-2 text-right font-bold text-emerald-400">{fmtRs(p.amount)}</td>
-                          <td className="px-3 py-2 text-zinc-500">{p.ref ?? '—'}</td>
+                          <td className="px-3 py-2 text-zinc-500">{p.ref ?? 'â€”'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -516,7 +516,7 @@ const BillDetailModal = ({
   );
 };
 
-// ─── Bills Tab ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Bills Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const BillsTab = ({
   farmers,
   onRefreshNeeded,
@@ -570,7 +570,7 @@ const BillsTab = ({
         <div className="flex items-center gap-2 flex-1 min-w-[180px] bg-white/4 border border-white/8 rounded-xl px-3 py-2">
           <Search size={13} className="text-zinc-500 shrink-0" />
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search invoice# or farmer…"
+            placeholder="Search invoice# or farmerâ€¦"
             className="bg-transparent text-sm text-zinc-100 outline-none flex-1 placeholder:text-zinc-600" />
         </div>
         <div className="flex items-center gap-2">
@@ -606,7 +606,7 @@ const BillsTab = ({
         {loading && (
           <div className="p-12 flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-            <p className="text-zinc-500 text-sm">Loading invoices…</p>
+            <p className="text-zinc-500 text-sm">Loading invoicesâ€¦</p>
           </div>
         )}
         {!loading && error && (
@@ -677,7 +677,7 @@ const BillsTab = ({
   );
 };
 
-// ─── New Bill Tab ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ New Bill Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface BillLine {
   productId: string;
   productName: string;
@@ -790,7 +790,7 @@ const NewBillTab = ({
 
     setSubmitting(true);
     try {
-      await apiFetch('/api/sales/invoices', {
+      await apiFetch('/sales/invoices', {
         method: 'POST',
         body: JSON.stringify({
           farmerId: farmer._id,
@@ -892,7 +892,7 @@ const NewBillTab = ({
                 value={productQ}
                 onChange={e => { setProductQ(e.target.value); setShowProductDrop(true); }}
                 onFocus={() => setShowProductDrop(true)}
-                placeholder="Search product to add…"
+                placeholder="Search product to addâ€¦"
                 className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-emerald-500/60 transition placeholder:text-zinc-600"
               />
               {showProductDrop && filteredProducts.length > 0 && (
@@ -901,7 +901,7 @@ const NewBillTab = ({
                     <button key={p._id} type="button" onClick={() => addProduct(p)}
                       className="w-full text-left px-4 py-2.5 hover:bg-white/8 text-sm flex justify-between items-center gap-2">
                       <span className="text-white font-medium">{p.name}</span>
-                      <span className="text-zinc-500 text-xs shrink-0">{p.code} · {p.baseStockUnit}</span>
+                      <span className="text-zinc-500 text-xs shrink-0">{p.code} Â· {p.baseStockUnit}</span>
                     </button>
                   ))}
                 </div>
@@ -939,10 +939,10 @@ const NewBillTab = ({
                     </div>
                     <div>
                       <label className="block text-[10px] text-zinc-500 mb-1">MRP</label>
-                      <p className="text-sm text-zinc-400 py-1.5">{line.mrp > 0 ? fmtRs(line.mrp) : '—'}</p>
+                      <p className="text-sm text-zinc-400 py-1.5">{line.mrp > 0 ? fmtRs(line.mrp) : 'â€”'}</p>
                     </div>
                     <div>
-                      <label className="block text-[10px] text-zinc-500 mb-1">Rate (₹) *</label>
+                      <label className="block text-[10px] text-zinc-500 mb-1">Rate (â‚¹) *</label>
                       <input type="number" min="0" step="0.01" value={line.rate}
                         onChange={e => updateLine(idx, 'rate', e.target.value)}
                         placeholder="0.00"
@@ -960,7 +960,7 @@ const NewBillTab = ({
                     </div>
                     <div className="flex flex-col justify-end">
                       <label className="block text-[10px] text-zinc-500 mb-1">Line Total</label>
-                      <p className="text-sm font-bold text-white py-1.5">{lt > 0 ? fmtRs(lt) : '—'}</p>
+                      <p className="text-sm font-bold text-white py-1.5">{lt > 0 ? fmtRs(lt) : 'â€”'}</p>
                     </div>
                   </div>
                 </div>
@@ -1070,7 +1070,7 @@ const NewBillTab = ({
           {payMethod === 'Credit' && farmer && (
             <div className="p-3 rounded-xl bg-amber-500/8 border border-amber-500/20 text-xs text-amber-400">
               <p className="font-bold mb-1">Credit outstanding for {farmer.name}</p>
-              <p>Current balance: {fmtRs(farmer.totalCredit ?? 0)} · Adding: {fmtRs(grandTotal)}</p>
+              <p>Current balance: {fmtRs(farmer.totalCredit ?? 0)} Â· Adding: {fmtRs(grandTotal)}</p>
             </div>
           )}
 
@@ -1090,7 +1090,7 @@ const NewBillTab = ({
   );
 };
 
-// ─── Returns Tab ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Returns Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ReturnsTab = ({ invoices }: { invoices?: Invoice[] }) => {
   const [returns, setReturns] = useState<SaleReturn[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1110,7 +1110,7 @@ const ReturnsTab = ({ invoices }: { invoices?: Invoice[] }) => {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const data = await apiFetch<SaleReturn[]>('/api/sales/returns');
+      const data = await apiFetch<SaleReturn[]>('/sales/returns');
       setReturns(data);
     } catch (e: any) {
       setError(e.message ?? 'Failed to load returns');
@@ -1124,7 +1124,7 @@ const ReturnsTab = ({ invoices }: { invoices?: Invoice[] }) => {
   const loadInvoicesForModal = useCallback(async () => {
     setModalInvLoading(true);
     try {
-      const data = await apiFetch<Invoice[]>('/api/sales/invoices?status=paid&status=finalized');
+      const data = await apiFetch<Invoice[]>('/sales/invoices?status=paid&status=finalized');
       setModalInvoices(data);
     } catch { /* ignore */ } finally {
       setModalInvLoading(false); }
@@ -1145,7 +1145,7 @@ const ReturnsTab = ({ invoices }: { invoices?: Invoice[] }) => {
     if (!items.length) return setCreateErr('Select at least one item to return');
     setSubmitting(true); setCreateErr(null);
     try {
-      await apiFetch('/api/sales/returns', {
+      await apiFetch('/sales/returns', {
         method: 'POST',
         body: JSON.stringify({ invoiceId: selectedInv._id, items, reason: reason.trim() || undefined }),
       });
@@ -1183,7 +1183,7 @@ const ReturnsTab = ({ invoices }: { invoices?: Invoice[] }) => {
         {loading && (
           <div className="p-12 flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
-            <p className="text-zinc-500 text-sm">Loading returns…</p>
+            <p className="text-zinc-500 text-sm">Loading returnsâ€¦</p>
           </div>
         )}
         {!loading && error && (
@@ -1267,7 +1267,7 @@ const ReturnsTab = ({ invoices }: { invoices?: Invoice[] }) => {
                     <div className="relative">
                       <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                       <input value={invSearch} onChange={e => setInvSearch(e.target.value)}
-                        placeholder="Invoice# or farmer name…"
+                        placeholder="Invoice# or farmer nameâ€¦"
                         className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-amber-500/60 transition placeholder:text-zinc-600" />
                     </div>
                     {modalInvLoading ? (
@@ -1279,7 +1279,7 @@ const ReturnsTab = ({ invoices }: { invoices?: Invoice[] }) => {
                             className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-white/8 text-sm flex justify-between items-center border border-white/5">
                             <div>
                               <p className="text-white font-bold">{inv.invoiceNumber}</p>
-                              <p className="text-zinc-500 text-xs">{inv.farmerName} · {fmtDate(inv.date)}</p>
+                              <p className="text-zinc-500 text-xs">{inv.farmerName} Â· {fmtDate(inv.date)}</p>
                             </div>
                             <span className="text-zinc-400 font-bold">{fmtRs(inv.grandTotal)}</span>
                           </button>
@@ -1292,7 +1292,7 @@ const ReturnsTab = ({ invoices }: { invoices?: Invoice[] }) => {
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <p className="text-sm font-bold text-zinc-100">{selectedInv.invoiceNumber}</p>
-                        <p className="text-xs text-zinc-500">{selectedInv.farmerName} · {fmtDate(selectedInv.date)}</p>
+                        <p className="text-xs text-zinc-500">{selectedInv.farmerName} Â· {fmtDate(selectedInv.date)}</p>
                       </div>
                       <button onClick={() => setSelectedInv(null)} className="text-zinc-500 hover:text-zinc-200 text-xs">Change</button>
                     </div>
@@ -1324,7 +1324,7 @@ const ReturnsTab = ({ invoices }: { invoices?: Invoice[] }) => {
                 <div>
                   <label className={lCls}>Reason</label>
                   <input type="text" value={reason} onChange={e => setReason(e.target.value)}
-                    placeholder="Reason for return…" className={iCls} />
+                    placeholder="Reason for returnâ€¦" className={iCls} />
                 </div>
               </div>
 
@@ -1343,7 +1343,7 @@ const ReturnsTab = ({ invoices }: { invoices?: Invoice[] }) => {
   );
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type TabId = 'bills' | 'new-bill' | 'returns';
 
 const SalesManagement: React.FC = () => {
@@ -1364,8 +1364,8 @@ const SalesManagement: React.FC = () => {
     setBootstrapLoading(true); setBootstrapErr(null);
     try {
       const [fs, ps] = await Promise.all([
-        apiFetch<Farmer[]>('/api/farmers'),
-        apiFetch<Product[]>('/api/products'),
+        apiFetch<Farmer[]>('/farmers'),
+        apiFetch<Product[]>('/products'),
       ]);
       setFarmers(fs);
       setProducts(ps);
@@ -1481,7 +1481,7 @@ const SalesManagement: React.FC = () => {
             <div className="flex justify-center py-16">
               <div className="flex flex-col items-center gap-3">
                 <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-                <p className="text-zinc-500 text-sm">Loading farmers and products…</p>
+                <p className="text-zinc-500 text-sm">Loading farmers and productsâ€¦</p>
               </div>
             </div>
           )}
