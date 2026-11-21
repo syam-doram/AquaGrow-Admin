@@ -83,36 +83,44 @@ async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
 }
 
 const fetchReceipts = () => apiFetch<StockReceipt[]>('/receipts');
+const fetchProductsList = () => apiFetch<any[]>('/products');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtDate = (s?: string) => s ? new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 // Backend amounts are plain ₹
 const fmtRs   = (n?: number) => n != null ? `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—';
 
-// Get the first item's product name from populated response
-function firstProductName(receipt: StockReceipt): string {
+// Get the first item's product name from populated response or map
+function firstProductName(receipt: StockReceipt, map: Record<string, PopulatedProduct> = {}): string {
   const item = receipt.items?.[0];
   if (!item) return 'Unknown Product';
   if (typeof item.productId === 'object' && item.productId !== null) {
     return item.productId.name ?? 'Unknown Product';
   }
-  return 'Unknown Product';
+  if (typeof item.productId === 'string' && map[item.productId]) {
+    return map[item.productId].name;
+  }
+  return typeof item.productId === 'string' ? `Product (${item.productId.slice(-5)})` : 'Unknown Product';
 }
 
 // Get summary of items (product names)
-function itemsSummary(receipt: StockReceipt): string {
+function itemsSummary(receipt: StockReceipt, map: Record<string, PopulatedProduct> = {}): string {
   if (!receipt.items?.length) return '—';
   return receipt.items.map(it => {
-    const name = typeof it.productId === 'object' && it.productId !== null
-      ? it.productId.name
-      : 'Product';
+    let name = 'Product';
+    if (typeof it.productId === 'object' && it.productId !== null) {
+      name = it.productId.name;
+    } else if (typeof it.productId === 'string' && map[it.productId]) {
+      name = map[it.productId].name;
+    }
     return `${it.quantity} ${it.unit ?? ''} ${name}`.trim();
   }).join(', ');
 }
 
 // ─── Detail Modal ─────────────────────────────────────────────────────────────
-const ReceiptModal = ({ receipt, onClose, onCost }: {
+const ReceiptModal = ({ receipt, productsMap = {}, onClose, onCost }: {
   receipt: StockReceipt;
+  productsMap?: Record<string, PopulatedProduct>;
   onClose: () => void;
   onCost: () => void;
 }) => (
@@ -159,11 +167,13 @@ const ReceiptModal = ({ receipt, onClose, onCost }: {
             <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mb-2">Items</p>
             <div className="space-y-2">
               {receipt.items.map((it, idx) => {
-                const prod = typeof it.productId === 'object' && it.productId !== null ? it.productId : null;
+                const prod = typeof it.productId === 'object' && it.productId !== null
+                  ? it.productId
+                  : (typeof it.productId === 'string' && productsMap[it.productId] ? productsMap[it.productId] : null);
                 return (
                   <div key={idx} className="p-3 rounded-xl bg-white/3 border border-white/5 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-zinc-100">{prod?.name ?? '—'}</span>
+                      <span className="font-bold text-zinc-100">{prod?.name ?? (typeof it.productId === 'string' ? `Product (${it.productId.slice(-5)})` : '—')}</span>
                       {prod?.code && <span className="text-zinc-600">{prod.code}</span>}
                     </div>
                     <p className="text-zinc-500 mt-1">{it.quantity} {it.unit ?? prod?.unit ?? 'units'}{it.packSize ? ` · pack: ${it.packSize}` : ''}</p>
@@ -215,6 +225,7 @@ const ReceiptModal = ({ receipt, onClose, onCost }: {
 const StockInwardReview: React.FC = () => {
   const navigate = useNavigate();
   const [receipts, setReceipts] = useState<StockReceipt[]>([]);
+  const [productsMap, setProductsMap] = useState<Record<string, PopulatedProduct>>({});
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
   const [search, setSearch]     = useState('');
@@ -225,7 +236,22 @@ const StockInwardReview: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      setReceipts(await fetchReceipts());
+      const [rRes, pRes] = await Promise.allSettled([
+        fetchReceipts(),
+        fetchProductsList(),
+      ]);
+      if (rRes.status === 'fulfilled') {
+        setReceipts(rRes.value);
+      } else {
+        throw rRes.reason;
+      }
+      if (pRes.status === 'fulfilled' && Array.isArray(pRes.value)) {
+        const map: Record<string, PopulatedProduct> = {};
+        for (const p of pRes.value) {
+          if (p._id) map[p._id] = { _id: p._id, name: p.name, code: p.sku || p.code, unit: p.unit };
+        }
+        setProductsMap(map);
+      }
     } catch (err: any) {
       setError(err.message ?? 'Failed to load receipts');
     } finally {
@@ -243,7 +269,7 @@ const StockInwardReview: React.FC = () => {
   }, [load]);
 
   const filtered = receipts.filter(r => {
-    const name = firstProductName(r).toLowerCase();
+    const name = firstProductName(r, productsMap).toLowerCase();
     const matchSearch =
       name.includes(search.toLowerCase()) ||
       (r.supplier ?? '').toLowerCase().includes(search.toLowerCase()) ||
@@ -387,7 +413,7 @@ const StockInwardReview: React.FC = () => {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-bold text-zinc-100">{firstProductName(r)}</p>
+                      <p className="text-sm font-bold text-zinc-100">{firstProductName(r, productsMap)}</p>
                       {r.items.length > 1 && (
                         <span className="text-[9px] text-zinc-500">+{r.items.length - 1} more</span>
                       )}
@@ -430,6 +456,7 @@ const StockInwardReview: React.FC = () => {
       {selected && (
         <ReceiptModal
           receipt={selected}
+          productsMap={productsMap}
           onClose={() => setSelected(null)}
           onCost={() => navigate('/costing-pricing')}
         />

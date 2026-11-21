@@ -531,7 +531,7 @@ export interface Coupon {
 }
 
 // ─── Product ──────────────────────────────────────────────────────────────────
-export type ProductCategory = 'Feed' | 'Medicine' | 'Aerator' | 'IoT Device' | 'Equipment' | 'Chemical';
+export type ProductCategory = 'Feed' | 'Medicine' | 'Mineral' | 'Minerals' | 'Aerator' | 'IoT Device' | 'Equipment' | 'Chemical' | 'Packaging' | 'Other';
 export type ProductStatus = 'active' | 'inactive' | 'out_of_stock' | 'discontinued';
 
 export interface ProductUsageSchedule {
