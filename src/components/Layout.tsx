@@ -6,7 +6,7 @@ import {
   Building2, Truck, Activity, LifeBuoy, Package, Award, Wifi,
   CreditCard, BookOpen, ClipboardList, Key, Database,
   Sun, Moon, Fish, Boxes, UserCheck, ShoppingBag,
-  Calculator, ClipboardCheck, ReceiptText, Sprout,
+  Calculator, ClipboardCheck, ReceiptText, Sprout, CalendarDays,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -352,15 +352,23 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     ...( !!user ? [{
       label: 'Shop ERP', emoji: '🏪',
       items: [
-        { icon: UserCheck,       label: 'Shop Staff',        path: '/shop-staff',          accent: 'text-emerald-400' },
-        { icon: Users,           label: 'Farmer Register',   path: '/farmer-register',     accent: 'text-cyan-400' },
+        { icon: LayoutDashboard, label: 'Shop Dashboard',    path: '/shop-dashboard',      accent: 'text-emerald-400' },
+        { icon: UserCheck,       label: 'Shop Staff',        path: '/shop-staff',          accent: 'text-zinc-400' },
+        { icon: Users,           label: 'Farmers',           path: '/farmer-register',     accent: 'text-cyan-400' },
+        { icon: Sprout,          label: 'Culture Cycles',    path: '/cultures',            accent: 'text-green-400' },
+        { icon: ReceiptText,     label: 'Sales & Billing',   path: '/sales',               accent: 'text-blue-400' },
+        { icon: CalendarDays,    label: 'Sales Calendar',    path: '/sales-calendar',      accent: 'text-indigo-400' },
+        { icon: ClipboardList,   label: 'Farmer Orders',     path: '/shop-orders',         accent: 'text-amber-400' },
         { icon: Calculator,      label: 'Costing & Pricing', path: '/costing-pricing',     accent: 'text-lime-400' },
-        { icon: ReceiptText,     label: 'Daily Sales',       path: '/daily-sales',         accent: 'text-blue-400' },
         { icon: Boxes,           label: 'Stock Inward',      path: '/stock-inward-review', accent: 'text-orange-400' },
+        { icon: ShoppingBag,     label: 'Wholesale Orders',  path: '/wholesale-orders',    accent: 'text-blue-400' },
+        { icon: Building2,       label: 'Suppliers',         path: '/suppliers',           accent: 'text-sky-400' },
+        { icon: ReceiptText,     label: 'Daily Sales',       path: '/daily-sales',         accent: 'text-teal-400' },
         { icon: ClipboardCheck,  label: 'Day Close',         path: '/dayclose-approval',   accent: 'text-teal-400' },
         { icon: Wallet,          label: 'Farmer Ledger',     path: '/farmer-ledger',       accent: 'text-purple-400' },
         { icon: Sprout,          label: 'Harvest Drafts',    path: '/harvest-drafts',      accent: 'text-lime-400' },
-        { icon: ShoppingBag,     label: 'Wholesale Orders',  path: '/wholesale-orders',    accent: 'text-blue-400' },
+        { icon: BarChart3,       label: 'Reports',           path: '/reports',             accent: 'text-violet-400' },
+        { icon: MessageSquare,   label: 'WhatsApp',          path: '/whatsapp',            accent: 'text-green-500' },
       ],
     }] : []),
     {
